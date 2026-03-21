@@ -705,6 +705,7 @@ function renderPanelModes(){
       </div>
       ${k===currentMode?'<span class="mode-row-badge">ACTIVE</span>':''}
       ${k!=='locked'?`<button class="mode-row-edit" onclick="event.stopPropagation();openTileEditorFromPanel('${k}')">✏ EDIT</button>`:''}
+      ${k!=='locked'?`<button class="mode-row-sw" style="border-color:rgba(255,61,90,0.3);color:var(--red)" onclick="event.stopPropagation();deleteModeFlow('${k}')">🗑</button>`:''}
       ${k!==currentMode?`<button class="mode-row-sw" onclick="event.stopPropagation();requestSwitch('${k}')">ACTIVATE</button>`:''}
     </div>`).join('');
 }
@@ -1046,37 +1047,81 @@ function builderNext(){
     builderData.name=nm;builderStep=1;renderStep();
   }
   else if(builderStep===1){builderStep=2;renderStep();}
-  else{saveMode();}  // Step 2 (URLs) — always allow proceeding, URLs are optional
+  else{saveMode();}
 }
 function builderBack(){if(builderStep>0){builderStep--;renderStep();}}
 function saveMode(){
   if(!builderData.name){toast('Mode needs a name','t-w');return;}
   const k='custom_'+Date.now();
-  // Build tiles from selected apps (with real exe paths) + URL tiles
-  const appTiles = builderData.apps.map(a=>({
-    icon: a.icon || guessIcon(a.name),
-    label: a.name,
-    c: builderData.color,
-    execPath: a.exePath || null,
-    exeName: a.exeName || null
+  const appTiles=builderData.apps.map(a=>({
+    icon:a.icon||guessIcon(a.name), label:a.name, c:builderData.color,
+    execPath:a.exePath||null, exeName:a.exeName||null
   }));
-  const urlTiles = builderData.urls.map(u=>({
-    icon: '🌐',
-    label: u.replace(/^https?:\/\//,'').split('/')[0], // domain as label
-    c: builderData.color,
-    url: u
+  const urlTiles=builderData.urls.map(u=>({
+    icon:'🌐', label:u.replace(/^https?:\/\//,'').split('/')[0],
+    c:builderData.color, url:u
   }));
   MODES[k]={
-    label: builderData.name.toUpperCase(),
-    tagline: builderData.name,
-    color: builderData.color,
-    tiles: [...appTiles, ...urlTiles],
-    apps: builderData.apps,
-    urls: builderData.urls
+    label:builderData.name.toUpperCase(), tagline:builderData.name,
+    color:builderData.color, tiles:[...appTiles,...urlTiles],
+    apps:builderData.apps, urls:builderData.urls
   };
   closeOverlay('mode-builder');
   toast('✓ Mode "'+builderData.name+'" created!','t-s');
+  persistAll(); // Save immediately
   setTimeout(()=>{renderPanelModes();openOverlay('parent-panel');},400);
+}
+
+/* ── Delete mode (requires PIN re-entry) ── */
+function deleteModeFlow(modeKey){
+  if(modeKey==='locked'){toast('Cannot delete the Locked mode','t-w');return;}
+  const modeName=MODES[modeKey]?.label||modeKey;
+  // Show PIN confirmation overlay
+  const ov=document.createElement('div');
+  ov.id='delete-mode-overlay';
+  ov.style.cssText='position:fixed;inset:0;z-index:300;display:flex;align-items:center;justify-content:center;background:rgba(0,0,0,0.88);backdrop-filter:blur(8px)';
+  ov.innerHTML=`
+    <div style="background:linear-gradient(160deg,#1a0808,#0d0404);border:1px solid rgba(255,61,90,0.4);border-radius:18px;padding:36px 40px;width:360px;display:flex;flex-direction:column;align-items:center;gap:16px">
+      <div style="font-size:36px">🗑️</div>
+      <div style="font-family:var(--fd);font-size:13px;letter-spacing:3px;color:var(--red);text-align:center">DELETE MODE</div>
+      <div style="font-size:14px;color:var(--text);text-align:center;line-height:1.7">
+        You are about to permanently delete<br>
+        <span style="font-family:var(--fd);color:var(--red);letter-spacing:2px">${modeName}</span><br>
+        <span style="color:var(--muted);font-size:13px">This cannot be undone. Enter your PIN to confirm.</span>
+      </div>
+      <input id="delete-pin-input" type="password" class="gate-input" placeholder="Enter parent PIN" maxlength="30" autocomplete="off"
+        style="width:100%;border-color:rgba(255,61,90,0.4);background:rgba(255,61,90,0.06)"
+        onkeydown="if(event.key==='Enter')confirmDeleteMode('${modeKey}')">
+      <button onclick="confirmDeleteMode('${modeKey}')"
+        style="width:100%;padding:12px;border-radius:10px;border:none;background:linear-gradient(135deg,#8b0000,#ff3d5a);color:#fff;font-family:var(--fd);font-size:11px;font-weight:700;letter-spacing:2px;cursor:pointer">
+        DELETE MODE PERMANENTLY
+      </button>
+      <div style="font-size:13px;color:var(--muted);cursor:pointer;font-family:var(--fm)"
+        onclick="document.getElementById('delete-mode-overlay').remove()">✕ Cancel</div>
+    </div>`;
+  document.body.appendChild(ov);
+  setTimeout(()=>document.getElementById('delete-pin-input')?.focus(),100);
+}
+
+async function confirmDeleteMode(modeKey){
+  const pin=document.getElementById('delete-pin-input')?.value.trim();
+  if(!pin){toast('Enter your PIN to confirm','t-w');return;}
+  const ok=await LD.verifyPin(pin);
+  if(!ok){
+    document.getElementById('delete-pin-input').classList.add('shake');
+    setTimeout(()=>document.getElementById('delete-pin-input').classList.remove('shake'),400);
+    toast('Incorrect PIN','t-w');return;
+  }
+  const modeName=MODES[modeKey]?.label||modeKey;
+  // If this is the current mode, switch to locked first
+  if(currentMode===modeKey){
+    currentMode='locked';renderLauncher('locked');showScreen('locked');
+  }
+  delete MODES[modeKey];
+  document.getElementById('delete-mode-overlay')?.remove();
+  await persistAll();
+  toast('🗑️ Mode "'+modeName+'" deleted','t-w');
+  renderPanelModes();
 }
 
 /* ══ TUTORIALS ══ */
@@ -1132,6 +1177,7 @@ function renderPanelModes(){
       </div>
       ${k===currentMode?'<span class="mode-row-badge">ACTIVE</span>':''}
       ${k!=='locked'?`<button class="mode-row-edit" onclick="event.stopPropagation();openTileEditorFromPanel('${k}')">✏ EDIT</button>`:''}
+      ${k!=='locked'?`<button class="mode-row-sw" style="border-color:rgba(255,61,90,0.3);color:var(--red)" onclick="event.stopPropagation();deleteModeFlow('${k}')">🗑</button>`:''}
       ${k!==currentMode?`<button class="mode-row-sw" onclick="event.stopPropagation();requestSwitch('${k}')">ACTIVATE</button>`:''}
     </div>`).join('');
   const old=document.getElementById('panel-sys-controls');if(old)old.remove();
@@ -1276,8 +1322,7 @@ function renderLauncher(mode){
 }
 
 /* ── Persist on mode save / switch ── */
-const _origSaveMode=saveMode;
-function saveMode(){_origSaveMode();persistAll();}
+// NOTE: saveMode already defined above — just patch finishSwitch for persist
 const _origFinishSwitch=finishSwitch;
 function finishSwitch(){_origFinishSwitch();persistMode(currentMode);}
 
