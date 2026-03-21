@@ -2,213 +2,254 @@
 <html lang="en">
 <head>
 <meta charset="UTF-8">
-<meta name="viewport" content="width=device-width, initial-scale=1.0">
 <title>BrightGate Browser</title>
 <link href="https://fonts.googleapis.com/css2?family=Orbitron:wght@600;800&family=Share+Tech+Mono&display=swap" rel="stylesheet">
 <style>
 *{box-sizing:border-box;margin:0;padding:0}
-:root{--cyan:#00c8ff;--red:#ff3d5a;--amber:#ffb800;--green:#00ff88;--bg:#04080f;--panel:#0a1422;--border:rgba(0,200,255,0.15);--text:#d0e8ff;--muted:rgba(180,220,255,0.45)}
-body{font-family:'Share Tech Mono',monospace;background:var(--bg);color:var(--text);height:100vh;display:flex;flex-direction:column;overflow:hidden}
+:root{--cyan:#00c8ff;--red:#ff3d5a;--green:#00ff88;--amber:#ffb800;--bg:#04080f;--border:rgba(0,200,255,0.15);--text:#d0e8ff;--muted:rgba(180,220,255,0.45)}
+html,body{height:100%;overflow:hidden;background:var(--bg);font-family:'Share Tech Mono',monospace;color:var(--text)}
+body{display:flex;flex-direction:column}
 
-/* BROWSER CHROME */
-.browser-bar{
-  display:flex;align-items:center;gap:10px;
-  padding:8px 14px;
-  background:rgba(4,8,15,0.95);
-  border-bottom:1px solid var(--border);
-  flex-shrink:0;
-  height:48px;
-}
-.site-badge{
-  display:flex;align-items:center;gap:8px;
-  padding:5px 14px;border-radius:20px;
-  background:rgba(0,200,255,0.08);
-  border:1px solid var(--border);
-  font-family:'Orbitron',monospace;font-size:10px;letter-spacing:2px;
-  color:var(--cyan);flex-shrink:0;
-}
-.site-dot{width:6px;height:6px;border-radius:50%;background:var(--green);animation:pulse 2s infinite}
-@keyframes pulse{0%,100%{opacity:1}50%{opacity:.5}}
-.url-display{
-  flex:1;padding:6px 12px;border-radius:8px;
-  background:rgba(0,200,255,0.04);border:1px solid var(--border);
-  font-size:12px;color:var(--muted);
-  overflow:hidden;text-overflow:ellipsis;white-space:nowrap;
-  cursor:default;user-select:none;
-}
-.nav-btn{
-  width:32px;height:32px;border-radius:7px;
-  border:1px solid var(--border);background:transparent;
-  color:var(--muted);cursor:pointer;font-size:14px;
-  display:flex;align-items:center;justify-content:center;
-  transition:all .15s;flex-shrink:0;
-}
+.toolbar{display:flex;align-items:center;gap:8px;padding:7px 12px;background:rgba(4,8,15,0.97);border-bottom:1px solid var(--border);flex-shrink:0;height:46px}
+.site-badge{display:flex;align-items:center;gap:7px;padding:4px 12px;border-radius:20px;background:rgba(0,200,255,0.07);border:1px solid var(--border);font-family:'Orbitron',monospace;font-size:9px;letter-spacing:2px;color:var(--cyan);flex-shrink:0;white-space:nowrap}
+.live-dot{width:5px;height:5px;border-radius:50%;background:var(--green);animation:pulse 2s infinite}
+@keyframes pulse{0%,100%{opacity:1}50%{opacity:.4}}
+.nav-btn{width:30px;height:30px;border-radius:7px;border:1px solid var(--border);background:transparent;color:var(--muted);cursor:pointer;font-size:13px;display:flex;align-items:center;justify-content:center;transition:all .15s;flex-shrink:0}
 .nav-btn:hover{border-color:var(--cyan);color:var(--cyan);background:rgba(0,200,255,0.08)}
-.nav-btn:disabled{opacity:.3;cursor:not-allowed}
-.close-btn{
-  padding:5px 14px;border-radius:20px;
-  border:1px solid rgba(255,61,90,0.35);background:rgba(255,61,90,0.08);
-  color:var(--red);cursor:pointer;font-family:'Orbitron',monospace;
-  font-size:9px;letter-spacing:2px;transition:all .15s;flex-shrink:0;
-}
-.close-btn:hover{background:rgba(255,61,90,0.2);border-color:var(--red)}
+.nav-btn:disabled{opacity:.25;cursor:not-allowed}
+.url-bar{flex:1;padding:5px 11px;border-radius:7px;background:rgba(0,200,255,0.04);border:1px solid var(--border);font-family:'Share Tech Mono',monospace;font-size:11px;color:var(--muted);overflow:hidden;text-overflow:ellipsis;white-space:nowrap;cursor:default;user-select:none}
+.lock-badge{font-family:'Orbitron',monospace;font-size:8px;letter-spacing:1px;color:var(--muted);flex-shrink:0;padding:0 4px}
+.close-btn{padding:4px 12px;border-radius:18px;border:1px solid rgba(255,61,90,0.35);background:rgba(255,61,90,0.07);color:var(--red);cursor:pointer;font-family:'Orbitron',monospace;font-size:8px;letter-spacing:1px;transition:all .15s;flex-shrink:0}
+.close-btn:hover{background:rgba(255,61,90,0.18)}
 
-/* WEBVIEW */
-webview{
-  flex:1;width:100%;border:none;
-  background:#fff;
-}
+.load-bar{height:2px;background:var(--cyan);width:0;transition:width .25s;position:fixed;top:46px;left:0;right:0;z-index:50;opacity:0}
+.load-bar.active{opacity:1}
 
-/* BLOCKED PAGE */
-.blocked-overlay{
-  position:fixed;inset:0;z-index:100;
-  background:rgba(4,8,15,0.96);backdrop-filter:blur(12px);
+webview{flex:1;width:100%;border:none}
+
+/* BLOCKED OVERLAY */
+.blocked{
+  position:fixed;inset:0;top:46px;z-index:200;
+  background:rgba(4,8,15,0.97);backdrop-filter:blur(10px);
   display:none;flex-direction:column;align-items:center;justify-content:center;
   gap:20px;text-align:center;padding:40px;
 }
-.blocked-overlay.show{display:flex}
-.blocked-icon{font-size:60px}
-.blocked-title{font-family:'Orbitron',monospace;font-size:18px;letter-spacing:3px;color:var(--red)}
-.blocked-url{font-size:13px;color:var(--muted);max-width:500px;word-break:break-all;padding:8px 16px;border-radius:8px;background:rgba(255,61,90,0.08);border:1px solid rgba(255,61,90,0.2)}
+.blocked.show{display:flex;animation:fadeIn .25s ease}
+@keyframes fadeIn{from{opacity:0}to{opacity:1}}
+.blocked-icon{font-size:60px;animation:shake .4s ease}
+@keyframes shake{0%,100%{transform:translateX(0)}25%{transform:translateX(-6px)}75%{transform:translateX(6px)}}
+.blocked-title{font-family:'Orbitron',monospace;font-size:18px;letter-spacing:4px;color:var(--red)}
+.blocked-reason{font-size:13px;color:var(--muted);font-family:'Share Tech Mono',monospace;padding:6px 14px;border-radius:8px;background:rgba(255,61,90,0.06);border:1px solid rgba(255,61,90,0.2)}
+.blocked-url{font-size:11px;color:rgba(180,220,255,0.3);max-width:500px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
 .blocked-msg{font-size:14px;color:var(--text);line-height:1.7;max-width:420px}
-.blocked-back{padding:10px 24px;border-radius:20px;border:1px solid rgba(0,200,255,0.3);background:rgba(0,200,255,0.08);color:var(--cyan);cursor:pointer;font-family:'Orbitron',monospace;font-size:10px;letter-spacing:2px;transition:all .2s}
-.blocked-back:hover{background:rgba(0,200,255,0.18)}
-
-/* LOADING BAR */
-.load-bar{height:2px;background:var(--cyan);width:0%;transition:width .3s;position:fixed;top:48px;left:0;right:0;z-index:50;opacity:0}
-.load-bar.active{opacity:1}
+.blocked-timer-wrap{position:relative;display:flex;align-items:center;justify-content:center}
+.blocked-timer-wrap svg{position:absolute;transform:rotate(-90deg)}
+.blocked-timer-num{font-family:'Orbitron',monospace;font-size:32px;font-weight:800;color:var(--amber);width:80px;height:80px;display:flex;align-items:center;justify-content:center}
+.blocked-actions{display:flex;gap:12px;align-items:center}
+.return-btn{padding:11px 28px;border-radius:24px;border:1px solid rgba(0,200,255,0.35);background:rgba(0,200,255,0.08);color:var(--cyan);cursor:pointer;font-family:'Orbitron',monospace;font-size:10px;letter-spacing:2px;transition:all .2s}
+.return-btn:hover{background:rgba(0,200,255,0.18);box-shadow:0 0 16px rgba(0,200,255,0.2)}
 </style>
 </head>
 <body>
-
-<div class="load-bar" id="load-bar"></div>
-
-<div class="browser-bar">
-  <div class="site-badge">
-    <div class="site-dot"></div>
-    <span id="site-name">Loading...</span>
-  </div>
-  <button class="nav-btn" id="btn-back" title="Back" disabled>←</button>
-  <button class="nav-btn" id="btn-fwd" title="Forward" disabled>→</button>
-  <button class="nav-btn" id="btn-reload" title="Reload">↺</button>
-  <div class="url-display" id="url-display">Loading...</div>
-  <div style="font-family:'Orbitron',monospace;font-size:9px;color:var(--muted);letter-spacing:1px;flex-shrink:0">🔒 LOCKED</div>
-  <button class="close-btn" onclick="closeBrowser()">✕ CLOSE</button>
+<div class="load-bar" id="lb"></div>
+<div class="toolbar">
+  <div class="site-badge"><div class="live-dot"></div><span id="site-name">Loading…</span></div>
+  <button class="nav-btn" id="btn-back" disabled>←</button>
+  <button class="nav-btn" id="btn-fwd" disabled>→</button>
+  <button class="nav-btn" id="btn-reload">↺</button>
+  <div class="url-bar" id="url-bar">Loading…</div>
+  <div class="lock-badge">🔒 LOCKED</div>
+  <button class="close-btn" onclick="window.close()">✕ CLOSE</button>
 </div>
 
-<webview id="wv" src="about:blank" allowpopups="false" disableblinkfeatures="Auxclick"></webview>
+<webview id="wv" src="about:blank"
+  useragent="Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36">
+</webview>
 
-<div class="blocked-overlay" id="blocked-overlay">
+<div class="blocked" id="blocked">
   <div class="blocked-icon">🚫</div>
-  <div class="blocked-title">SITE NOT ALLOWED</div>
-  <div class="blocked-url" id="blocked-url-text"></div>
-  <div class="blocked-msg">This website isn't on the approved list for this mode.<br>Ask a parent to add it if you need access.</div>
-  <button class="blocked-back" onclick="hideBlocked()">← GO BACK</button>
+  <div class="blocked-title">ACCESS BLOCKED</div>
+  <div class="blocked-reason" id="blocked-reason">This section is not allowed</div>
+  <div class="blocked-url" id="blocked-url"></div>
+  <div class="blocked-msg">This part of the site isn't approved.<br>You'll be taken back automatically.</div>
+  <div class="blocked-timer-wrap">
+    <svg width="80" height="80" viewBox="0 0 80 80">
+      <circle cx="40" cy="40" r="34" fill="none" stroke="rgba(255,255,255,0.08)" stroke-width="6"/>
+      <circle id="timer-arc" cx="40" cy="40" r="34" fill="none" stroke="#ffb800" stroke-width="6"
+        stroke-linecap="round" stroke-dasharray="213.6" stroke-dashoffset="0"/>
+    </svg>
+    <div class="blocked-timer-num" id="timer-num">10</div>
+  </div>
+  <div class="blocked-actions">
+    <button class="return-btn" onclick="returnToSafe()">← RETURN NOW</button>
+  </div>
 </div>
 
 <script>
-// Parse params from query string
 const params = new URLSearchParams(window.location.search);
 const startUrl = params.get('url') || 'about:blank';
 const tileTitle = params.get('title') || 'Web';
-let rules = [];
-try { rules = JSON.parse(params.get('rules') || '[]'); } catch(e) {}
+let urlConfigs = [];
+try { urlConfigs = JSON.parse(params.get('configs') || params.get('rules') || '[]'); } catch(e) {}
 
 const wv = document.getElementById('wv');
-const loadBar = document.getElementById('load-bar');
-const urlDisplay = document.getElementById('url-display');
-const siteName = document.getElementById('site-name');
+const lb = document.getElementById('lb');
+const urlBar = document.getElementById('url-bar');
 const btnBack = document.getElementById('btn-back');
 const btnFwd = document.getElementById('btn-fwd');
-
+document.getElementById('site-name').textContent = tileTitle.toUpperCase();
 document.title = tileTitle + ' — BrightGate';
-siteName.textContent = tileTitle.toUpperCase();
 
-// URL checking — mirrors main process logic
-function isAllowed(urlStr) {
-  try {
-    const u = new URL(urlStr.startsWith('http') ? urlStr : 'https://' + urlStr);
-    const hostname = u.hostname.replace(/^www\./, '');
-    const fullPath = hostname + u.pathname;
-    // Check blocks
-    for (const rule of rules) {
-      if (!rule.startsWith('!')) continue;
-      const blocked = rule.slice(1).replace(/^www\./, '').replace(/\/\*$/, '');
-      if (fullPath.startsWith(blocked)) return false;
-    }
-    // Check allows
-    for (const rule of rules) {
-      if (rule.startsWith('!')) continue;
-      const clean = rule.replace(/^www\./, '').replace(/\/\*$/, '');
-      if (!clean.includes('/')) {
-        if (hostname === clean || hostname.endsWith('.' + clean)) return true;
-      } else {
-        if (fullPath.startsWith(clean)) return true;
-      }
-    }
-    return false;
-  } catch(e) { return false; }
+let safeUrl = startUrl; // last known good URL
+let blockTimer = null;
+let blockSeconds = 10;
+const CIRC = 213.6;
+
+function reasonText(reason, keyword) {
+  if (reason === 'global_keyword' || reason === 'site_keyword') return `"${keyword}" content is blocked`;
+  if (reason === 'path_not_allowed') return 'This section is not approved';
+  if (reason === 'domain_not_approved') return 'This website is not on the approved list';
+  if (reason === 'ad_tracker') return 'Ad / tracker blocked';
+  return 'This content is blocked';
 }
 
-function showBlocked(url) {
-  document.getElementById('blocked-url-text').textContent = url;
-  document.getElementById('blocked-overlay').classList.add('show');
+function showBlocked(url, reason, keyword) {
+  // Stop the webview immediately
+  try { wv.stop(); } catch(e) {}
+
+  document.getElementById('blocked-reason').textContent = reasonText(reason, keyword);
+  document.getElementById('blocked-url').textContent = url || '';
+  document.getElementById('blocked').classList.add('show');
+
+  // Start 10-second countdown
+  clearInterval(blockTimer);
+  blockSeconds = 10;
+  updateTimerUI();
+  blockTimer = setInterval(() => {
+    blockSeconds--;
+    updateTimerUI();
+    if (blockSeconds <= 0) {
+      clearInterval(blockTimer);
+      returnToSafe();
+    }
+  }, 1000);
 }
+
+function updateTimerUI() {
+  document.getElementById('timer-num').textContent = blockSeconds;
+  document.getElementById('timer-arc').style.strokeDashoffset = CIRC * (1 - blockSeconds / 10);
+}
+
 function hideBlocked() {
-  document.getElementById('blocked-overlay').classList.remove('show');
-  if (wv.canGoBack()) wv.goBack();
+  clearInterval(blockTimer);
+  document.getElementById('blocked').classList.remove('show');
+}
+
+function returnToSafe() {
+  hideBlocked();
+  try {
+    if (wv.canGoBack()) wv.goBack();
+    else wv.loadURL(safeUrl);
+  } catch(e) { wv.loadURL(safeUrl); }
+}
+
+// Listen for block events from main process
+if (window.ipcRenderer) {
+  window.ipcRenderer.on('url-blocked', (_, data) => {
+    showBlocked(data.url, data.reason, data.keyword);
+  });
 }
 
 // Nav buttons
-btnBack.onclick = () => { if (wv.canGoBack()) wv.goBack(); };
-btnFwd.onclick = () => { if (wv.canGoForward()) wv.goForward(); };
-document.getElementById('btn-reload').onclick = () => wv.reload();
+btnBack.onclick = () => { hideBlocked(); if(wv.canGoBack()) wv.goBack(); };
+btnFwd.onclick = () => { if(wv.canGoForward()) wv.goForward(); };
+document.getElementById('btn-reload').onclick = () => { hideBlocked(); wv.reload(); };
+
+// Client-side URL check (mirrors main process logic for webview navigation)
+function isAllowedClient(url) {
+  if (!url || url === 'about:blank') return { allowed: true };
+  try {
+    const u = new URL(url);
+    const hostname = u.hostname.replace(/^www\./, '');
+    const pathLower = (u.pathname + u.search).toLowerCase();
+
+    // Global blocked keywords (basic client-side check)
+    const globalKeys = ['games','play','forum','chat','shop','store'];
+    for (const k of globalKeys) {
+      if (pathLower.includes(k)) return { allowed: false, reason: 'global_keyword', keyword: k };
+    }
+
+    // Check against configs
+    for (const cfg of urlConfigs) {
+      if (!cfg || !cfg.domain) continue;
+      const cfgDomain = cfg.domain.replace(/^www\./, '').split('/')[0];
+      if (hostname !== cfgDomain && !hostname.endsWith('.' + cfgDomain)) continue;
+
+      // Per-site blocked keywords
+      if (cfg.blockedKeys) {
+        for (const k of cfg.blockedKeys) {
+          if (pathLower.includes(k.toLowerCase())) return { allowed: false, reason: 'site_keyword', keyword: k };
+        }
+      }
+      // Allowed subpaths
+      if (cfg.allowedPaths && cfg.allowedPaths.length > 0) {
+        const ok = cfg.allowedPaths.some(p => {
+          const clean = p.startsWith('/') ? p : '/' + p;
+          return u.pathname === '/' || u.pathname.startsWith(clean);
+        });
+        if (!ok) return { allowed: false, reason: 'path_not_allowed' };
+      }
+      return { allowed: true };
+    }
+    return { allowed: false, reason: 'domain_not_approved' };
+  } catch(e) { return { allowed: false, reason: 'invalid_url' }; }
+}
 
 // Webview events
 wv.addEventListener('did-start-loading', () => {
-  loadBar.style.width = '40%';
-  loadBar.classList.add('active');
+  lb.style.width='40%'; lb.classList.add('active');
 });
 wv.addEventListener('did-stop-loading', () => {
-  loadBar.style.width = '100%';
-  setTimeout(() => { loadBar.classList.remove('active'); loadBar.style.width = '0%'; }, 400);
+  lb.style.width='100%';
+  setTimeout(()=>{ lb.classList.remove('active'); lb.style.width='0'; },300);
   btnBack.disabled = !wv.canGoBack();
   btnFwd.disabled = !wv.canGoForward();
-  try {
-    const url = wv.getURL();
-    urlDisplay.textContent = url;
-    if (url && url !== 'about:blank' && !isAllowed(url)) {
-      showBlocked(url);
-      wv.stop();
-      if (wv.canGoBack()) wv.goBack();
-    }
-  } catch(e) {}
+  try { urlBar.textContent = wv.getURL(); } catch(e) {}
 });
-wv.addEventListener('will-navigate', (e) => {
-  if (e.url && e.url !== 'about:blank' && !isAllowed(e.url)) {
-    showBlocked(e.url);
+wv.addEventListener('did-navigate', (e) => {
+  if (e.url && e.url !== 'about:blank') {
+    const check = isAllowedClient(e.url);
+    if (!check.allowed) {
+      showBlocked(e.url, check.reason, check.keyword);
+    } else {
+      safeUrl = e.url; // update safe URL
+      hideBlocked();
+    }
+  }
+  try { urlBar.textContent = e.url; } catch(e2) {}
+  btnBack.disabled = !wv.canGoBack();
+  btnFwd.disabled = !wv.canGoForward();
+});
+wv.addEventListener('did-navigate-in-page', (e) => {
+  if (e.url) {
+    const check = isAllowedClient(e.url);
+    if (!check.allowed) showBlocked(e.url, check.reason, check.keyword);
+    else safeUrl = e.url;
+    try { urlBar.textContent = e.url; } catch(e2) {}
   }
 });
 wv.addEventListener('new-window', (e) => {
-  // All new windows — check and load in same webview
-  if (isAllowed(e.url)) wv.loadURL(e.url);
-  else showBlocked(e.url);
+  const check = isAllowedClient(e.url);
+  if (check.allowed) wv.loadURL(e.url);
+  else showBlocked(e.url, check.reason, check.keyword);
 });
-wv.addEventListener('page-title-updated', (e) => {
-  // Don't update site badge — keep it showing the tile name
-});
-
-function closeBrowser() { window.close(); }
 
 // Load initial URL
 window.addEventListener('DOMContentLoaded', () => {
   if (startUrl && startUrl !== 'about:blank') {
-    if (isAllowed(startUrl)) {
-      wv.src = startUrl;
-      urlDisplay.textContent = startUrl;
-    } else {
-      showBlocked(startUrl);
-    }
+    const check = isAllowedClient(startUrl);
+    if (check.allowed) { wv.src = startUrl; urlBar.textContent = startUrl; safeUrl = startUrl; }
+    else showBlocked(startUrl, check.reason, check.keyword);
   }
 });
 </script>

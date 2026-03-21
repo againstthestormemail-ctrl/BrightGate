@@ -168,51 +168,147 @@ function stopMonitor() {
 
 // ─── URL RULE ENGINE ──────────────────────────────────────────────────────────
 /**
- * Check if a URL is allowed given an array of rules.
- * Rule formats:
- *   "khanacademy.org"          → allows entire domain + subdomains
- *   "khanacademy.org/*"        → same (explicit wildcard)
- *   "youtube.com/kids"         → allows youtube.com/kids and youtube.com/kids/*
- *   "youtube.com/kids/*"       → same (explicit subpath lock)
- *   "!youtube.com/games"       → explicit block (overrides above)
+ * URL config object passed from renderer:
+ * {
+ *   domain:       "khanacademy.org"          — approved domain
+ *   allowedPaths: ["/math", "/science"]      — optional: only these subpaths
+ *   blockedKeys:  ["games", "play", "forum"] — block any URL containing these
+ *   blockExternal: true                      — block links leaving the domain
+ * }
+ *
+ * Global settings in appData.urlSettings:
+ * {
+ *   globalBlockedKeys: ["games","play","forum","chat","shop","login","signup"]
+ *   blockAds: true   — block known ad/tracker domains
+ * }
  */
-function isUrlAllowed(urlString, rules) {
+
+const AD_TRACKER_DOMAINS = [
+  'doubleclick.net','googlesyndication.com','googleadservices.com',
+  'adnxs.com','adsrvr.org','moatads.com','scorecardresearch.com',
+  'amazon-adsystem.com','taboola.com','outbrain.com','pubmatic.com',
+  'rubiconproject.com','openx.net','casalemedia.com','rlcdn.com',
+  'crwdcntrl.net','bluekai.com','exelator.com','demdex.net'
+];
+
+function isAdDomain(hostname) {
+  return AD_TRACKER_DOMAINS.some(d => hostname === d || hostname.endsWith('.' + d));
+}
+
+function getGlobalBlockedKeys() {
+  return (appData && appData.urlSettings && appData.urlSettings.globalBlockedKeys)
+    ? appData.urlSettings.globalBlockedKeys
+    : ['games','play','forum','chat','shop','store','login','signup','adverti','gamble'];
+}
+
+/**
+ * Main URL check — returns { allowed: bool, reason: string }
+ * urlConfig: array of site config objects OR legacy array of rule strings
+ */
+function checkUrl(urlString, urlConfigs) {
+  if (!urlString || urlString === 'about:blank' || urlString.startsWith('file://')) {
+    return { allowed: true, reason: 'internal' };
+  }
+
+  let u;
   try {
-    const u = new URL(urlString.startsWith('http') ? urlString : 'https://' + urlString);
-    const hostname = u.hostname.replace(/^www\./, '');
-    const fullPath = hostname + u.pathname;
+    u = new URL(urlString.startsWith('http') ? urlString : 'https://' + urlString);
+  } catch(e) {
+    return { allowed: false, reason: 'invalid_url' };
+  }
 
-    // Check explicit blocks first (rules starting with !)
-    for (const rule of rules) {
-      if (!rule.startsWith('!')) continue;
-      const blocked = rule.slice(1).replace(/^www\./, '').replace(/\/\*$/, '');
-      if (fullPath.startsWith(blocked)) return false;
+  const hostname = u.hostname.replace(/^www\./, '');
+  const fullUrl = hostname + u.pathname + u.search;
+  const pathLower = (u.pathname + u.search).toLowerCase();
+
+  // Block ad/tracker domains globally
+  if (appData && appData.urlSettings && appData.urlSettings.blockAds !== false) {
+    if (isAdDomain(hostname)) {
+      return { allowed: false, reason: 'ad_tracker' };
     }
+  }
 
-    // Check allows
-    for (const rule of rules) {
+  // Check global blocked keywords against the full path
+  const globalKeys = getGlobalBlockedKeys();
+  for (const key of globalKeys) {
+    if (pathLower.includes(key.toLowerCase())) {
+      return { allowed: false, reason: 'global_keyword', keyword: key };
+    }
+  }
+
+  // Handle legacy string rules (backwards compat)
+  if (!urlConfigs || urlConfigs.length === 0) return { allowed: false, reason: 'no_rules' };
+
+  // If first element is a string, use legacy mode
+  if (typeof urlConfigs[0] === 'string') {
+    for (const rule of urlConfigs) {
       if (rule.startsWith('!')) continue;
       const clean = rule.replace(/^www\./, '').replace(/\/\*$/, '');
-      // Domain-only rule — allow everything on that domain
-      if (!clean.includes('/')) {
-        if (hostname === clean || hostname.endsWith('.' + clean)) return true;
-      } else {
-        // Path rule — allow domain + that path prefix
-        if (fullPath.startsWith(clean)) return true;
+      const ruleDomain = clean.split('/')[0];
+      if (hostname === ruleDomain || hostname.endsWith('.' + ruleDomain)) {
+        if (clean.includes('/') && !fullUrl.startsWith(clean)) continue;
+        return { allowed: true, reason: 'legacy_rule' };
       }
     }
-    return false;
-  } catch(e) { return false; }
+    return { allowed: false, reason: 'not_in_rules' };
+  }
+
+  // New config object mode
+  for (const cfg of urlConfigs) {
+    if (!cfg || !cfg.domain) continue;
+    const cfgDomain = cfg.domain.replace(/^www\./, '').replace(/\/\*$/, '').split('/')[0];
+
+    // Check if hostname matches this config's domain
+    if (hostname !== cfgDomain && !hostname.endsWith('.' + cfgDomain)) continue;
+
+    // Domain matched — now apply per-site rules
+
+    // Block external links if enabled
+    if (cfg.blockExternal) {
+      // Already matched domain above — this is fine
+    }
+
+    // Per-site blocked keywords
+    if (cfg.blockedKeys && cfg.blockedKeys.length > 0) {
+      for (const key of cfg.blockedKeys) {
+        if (pathLower.includes(key.toLowerCase())) {
+          return { allowed: false, reason: 'site_keyword', keyword: key };
+        }
+      }
+    }
+
+    // Allowed subpaths — if specified, ONLY those paths are allowed
+    if (cfg.allowedPaths && cfg.allowedPaths.length > 0) {
+      const pathMatches = cfg.allowedPaths.some(p => {
+        const clean = p.startsWith('/') ? p : '/' + p;
+        return u.pathname === '/' || u.pathname.startsWith(clean);
+      });
+      if (!pathMatches) {
+        return { allowed: false, reason: 'path_not_allowed' };
+      }
+    }
+
+    return { allowed: true, reason: 'approved_site' };
+  }
+
+  // No config matched this domain
+  // If blockExternal is true on any config, block everything not in an approved domain
+  return { allowed: false, reason: 'domain_not_approved' };
+}
+
+// Legacy wrapper — keep old signature working
+function isUrlAllowed(urlString, rules) {
+  return checkUrl(urlString, rules).allowed;
 }
 
 // ─── WEBVIEW WINDOW ───────────────────────────────────────────────────────────
 let webviewWindows = {};
 
-function openLockedBrowser(tileLabel, startUrl, rules) {
-  // Check initial URL is allowed
-  if (!isUrlAllowed(startUrl, rules)) {
+function openLockedBrowser(tileLabel, startUrl, urlConfigs) {
+  const check = checkUrl(startUrl, urlConfigs);
+  if (!check.allowed) {
     if (mainWindow) {
-      mainWindow.webContents.send('browser:blocked', { url: startUrl, label: tileLabel });
+      mainWindow.webContents.send('browser:blocked', { url: startUrl, label: tileLabel, reason: check.reason });
     }
     return;
   }
@@ -222,50 +318,55 @@ function openLockedBrowser(tileLabel, startUrl, rules) {
     height: 800,
     fullscreen: appData.kioskMode,
     parent: mainWindow,
-    backgroundColor: '#04080f',
+    backgroundColor: '#ffffff',
     title: tileLabel + ' — BrightGate',
     webPreferences: {
-      preload: path.join(__dirname, 'browser-preload.js'),
       nodeIntegration: false,
       contextIsolation: true,
-      sandbox: true,
-      // Disable DevTools access
-      devTools: false
+      sandbox: false,
+      webviewTag: true,
+      devTools: false,
+      webSecurity: true,
+      allowRunningInsecureContent: false
     }
   });
 
-  // Hide menu bar
   win.setMenuBarVisibility(false);
   win.removeMenu();
 
-  // Block navigation to non-allowed URLs
+  // Block navigation using full URL engine
   win.webContents.on('will-navigate', (event, url) => {
-    if (!isUrlAllowed(url, rules)) {
+    if (url.startsWith('file://')) return;
+    const result = checkUrl(url, urlConfigs);
+    if (!result.allowed) {
       event.preventDefault();
-      win.webContents.send('bg:blocked', url);
+      // Send block info to the browser shell
+      win.webContents.send('url-blocked', { url, reason: result.reason, keyword: result.keyword });
+      console.log('[Browser] Blocked:', url, reason);
     }
   });
 
-  // Block new window/popup attempts
-  win.webContents.setWindowOpenHandler(({ url }) => {
-    if (isUrlAllowed(url, rules)) {
-      win.loadURL(url);
-    }
-    return { action: 'deny' };
-  });
-
-  // Block redirects too
   win.webContents.on('will-redirect', (event, url) => {
-    if (!isUrlAllowed(url, rules)) {
+    if (url.startsWith('file://')) return;
+    const result = checkUrl(url, urlConfigs);
+    if (!result.allowed) {
       event.preventDefault();
+      win.webContents.send('url-blocked', { url, reason: result.reason, keyword: result.keyword });
     }
+  });
+
+  win.webContents.setWindowOpenHandler(({ url }) => {
+    const result = checkUrl(url, urlConfigs);
+    if (result.allowed) win.loadURL(url);
+    else win.webContents.send('url-blocked', { url, reason: result.reason });
+    return { action: 'deny' };
   });
 
   const fullUrl = startUrl.startsWith('http') ? startUrl : 'https://' + startUrl;
 
   // Load our browser shell which wraps the target in a locked chrome
   win.loadFile(path.join(__dirname, 'src', 'browser.html'), {
-    query: { url: fullUrl, title: tileLabel, rules: JSON.stringify(rules) }
+    query: { url: fullUrl, title: tileLabel, rules: JSON.stringify(rules), urlMode: urlMode || 'open' }
   });
 
   const id = Date.now();
@@ -379,15 +480,29 @@ ipcMain.handle('app:launch', (e, execPath) => {
 });
 
 // Open URL in locked browser
-ipcMain.handle('app:openUrl', (e, url, tileLabel, rules) => {
+ipcMain.handle('app:openUrl', (e, url, tileLabel, urlConfigs) => {
   try {
-    openLockedBrowser(tileLabel || 'Web', url, rules || [url]);
+    openLockedBrowser(tileLabel || 'Web', url, urlConfigs || [url]);
     return { success: true };
   } catch(err) { return { success: false, error: err.message }; }
 });
 
-// Check if URL is allowed
-ipcMain.handle('url:check', (e, url, rules) => isUrlAllowed(url, rules));
+// Check if URL is allowed — returns full result object
+ipcMain.handle('url:check', (e, url, urlConfigs) => {
+  return checkUrl(url, urlConfigs);
+});
+
+// Get/set global URL settings
+ipcMain.handle('urlSettings:get', () => {
+  return appData.urlSettings || {
+    globalBlockedKeys: ['games','play','forum','chat','shop','store','login','signup'],
+    blockAds: true
+  };
+});
+ipcMain.handle('urlSettings:save', (e, settings) => {
+  appData.urlSettings = settings;
+  return saveData(appData);
+});
 
 // Toggle blocking
 ipcMain.handle('blocking:set', (e, enabled) => {

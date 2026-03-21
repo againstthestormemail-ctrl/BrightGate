@@ -1,5 +1,5 @@
 {
-  "version": "1.3.4",
+  "version": "1.3.6",
   "updatedAt": "2026-03-21",
-  "notes": "Fix delete mode, fix countdown crash, block Alt+Tab always"
+  "notes": "URL filtering per site, global blocked keywords, 10s blocked screen, fix URL editing"
 }
