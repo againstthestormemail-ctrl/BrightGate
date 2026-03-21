@@ -1,5 +1,5 @@
 {
-  "version": "1.3.2",
+  "version": "1.3.3",
   "updatedAt": "2026-03-21",
-  "notes": "Fix CREATE MODE button, add delete mode with PIN confirm"
+  "notes": "Fix countdown freeze when skipping mode switch"
 }

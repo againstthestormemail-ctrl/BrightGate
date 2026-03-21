@@ -713,22 +713,55 @@ function openTileEditorFromPanel(k){closeOverlay('parent-panel');openTileEditor(
 function requestSwitch(mode){
   closeOverlay('parent-panel');
   if(mode===currentMode)return;
-  if(mode==='locked'){currentMode='locked';renderLauncher('locked');showScreen('locked');return;}
+  if(mode==='locked'){
+    currentMode='locked';renderLauncher('locked');showScreen('locked');persistMode('locked');return;
+  }
   if(currentMode==='locked')return;
+  if(!MODES[mode]){toast('Mode not found','t-w');return;}
   pendingMode=mode;
-  document.getElementById('cd-title').textContent='Switching to '+MODES[mode].label;
-  document.getElementById('cd-app').textContent=MODES[currentMode].tiles[0]?.label||'Current App';
+  const modeLabel=MODES[mode]?.label||mode;
+  const titleEl=document.getElementById('cd-title');
+  const appEl=document.getElementById('cd-app');
+  if(titleEl)titleEl.textContent='Switching to '+modeLabel;
+  if(appEl)appEl.textContent=(MODES[currentMode]?.tiles||[])[0]?.label||'Current App';
   startCountdown(300);showScreen('countdown');
 }
 
 /* ══ COUNTDOWN ══ */
 function startCountdown(s){
   clearInterval(cdInterval);countdownSecs=s;const total=s,circ=427;
-  function upd(){const m=Math.floor(countdownSecs/60),sec=countdownSecs%60;document.getElementById('cd-num').textContent=m+':'+(sec<10?'0':'')+sec;document.getElementById('cd-arc').style.strokeDashoffset=circ*(1-countdownSecs/total);if(countdownSecs<=0){clearInterval(cdInterval);finishSwitch();}countdownSecs--;}
+  function upd(){
+    const m=Math.floor(countdownSecs/60),sec=countdownSecs%60;
+    const numEl=document.getElementById('cd-num');
+    const arcEl=document.getElementById('cd-arc');
+    if(numEl)numEl.textContent=m+':'+(sec<10?'0':'')+sec;
+    if(arcEl)arcEl.style.strokeDashoffset=circ*(1-countdownSecs/total);
+    if(countdownSecs<=0){clearInterval(cdInterval);cdInterval=null;doFinishSwitch();return;}
+    countdownSecs--;
+  }
   upd();cdInterval=setInterval(upd,1000);
 }
-function skipCountdown(){clearInterval(cdInterval);finishSwitch()}
-function finishSwitch(){currentMode=pendingMode;renderLauncher(currentMode);showScreen('launcher');toast('⚡ Mode: '+MODES[currentMode].label,'t-s')}
+function skipCountdown(){
+  clearInterval(cdInterval);cdInterval=null;
+  doFinishSwitch();
+}
+function doFinishSwitch(){
+  try{
+    if(!pendingMode||!MODES[pendingMode]){
+      showScreen('launcher');toast('Mode no longer exists','t-w');return;
+    }
+    currentMode=pendingMode;pendingMode=null;
+    renderLauncher(currentMode);
+    showScreen('launcher');
+    toast('⚡ Mode: '+(MODES[currentMode]?.label||currentMode),'t-s');
+    persistMode(currentMode);
+  }catch(e){
+    console.error('Switch error:',e);
+    pendingMode=null;showScreen('launcher');
+    toast('Mode switch error — please retry','t-w');
+  }
+}
+function finishSwitch(){doFinishSwitch();}
 
 /* ══ LOCK ══ */
 let lockPin='';
@@ -1322,9 +1355,7 @@ function renderLauncher(mode){
 }
 
 /* ── Persist on mode save / switch ── */
-// NOTE: saveMode already defined above — just patch finishSwitch for persist
-const _origFinishSwitch=finishSwitch;
-function finishSwitch(){_origFinishSwitch();persistMode(currentMode);}
+// finishSwitch/doFinishSwitch handle persist directly — no override needed
 
 /* ══ INIT ══ */
 async function init(){
