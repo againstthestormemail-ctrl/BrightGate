@@ -850,6 +850,13 @@ function renderTileEditor(){
         <div class="fl">WEBSITE TILES <span style="color:var(--cyan)" id="te-url-count">(${m.tiles.filter(t=>t.url).length})</span></div>
         <div id="te-url-list">${renderUrlChips(m.tiles.filter(t=>t.url))}</div>
       </div>
+      <div style="margin-top:10px">
+        <div class="fl" style="margin-bottom:6px">URL FILTER RULES FOR THIS MODE <span class="hbtn" onclick="showTutorial('urls')">?</span></div>
+        <div id="te-url-configs">${renderModeUrlConfigs(editModeKey)}</div>
+        <div style="margin-top:8px;display:flex;gap:8px;flex-wrap:wrap">
+          <button class="add-btn" onclick="openUrlSettings()" style="border-color:rgba(176,96,255,0.35);color:var(--purple)">⚙ Global Filter Settings</button>
+        </div>
+      </div>
     </div>
     <div class="divider"></div>
     <div>
@@ -1258,16 +1265,21 @@ function addUrlTile(){
 function quickUrlTile(u){_addUrlTileToMode(u,'explore');}
 function _addUrlTileToMode(url,urlMode){
   if(!MODES[editModeKey])return;
-  if(MODES[editModeKey].tiles.find(t=>t.url===url)){toast('Already added','t-w');return;}
-  const domain=url.split('/')[0];
+  if(MODES[editModeKey].tiles.find(t=>t.url===('https://'+url)||t.url===url)){toast('Already added','t-w');return;}
+  const domain=url.replace(/^https?:\/\//,'').split('/')[0];
   const iconMap={youtube:'▶️',khan:'📚',scratch:'🐱',pbs:'📺',coolmath:'🎮',duolingo:'🦜',national:'🌍',geo:'🌎',wikipedia:'📖',nasa:'🚀'};
   const icon=Object.entries(iconMap).find(([k])=>domain.includes(k))?.[1]||'🌐';
-  MODES[editModeKey].tiles.push({icon,label:domain,url,urlMode,c:MODES[editModeKey].color});
-  if(!MODES[editModeKey].urls)MODES[editModeKey].urls=[];
-  if(!MODES[editModeKey].urls.includes(url))MODES[editModeKey].urls.push(url);
+  const urlConfig={domain,blockExternal:true,blockedKeys:[],allowedPaths:[]};
+  MODES[editModeKey].tiles.push({icon,label:domain,url:'https://'+url,urlConfig,c:MODES[editModeKey].color});
+  // Keep urlConfigs array in sync
+  if(!MODES[editModeKey].urlConfigs)MODES[editModeKey].urlConfigs=[];
+  if(!MODES[editModeKey].urlConfigs.find(c=>c.domain===domain)){
+    MODES[editModeKey].urlConfigs.push(urlConfig);
+  }
   _refreshTileEditorUI();
   if(currentMode===editModeKey)renderLauncher(currentMode);
-  persistAll();toast('✓ Website tile added','t-s');
+  persistAll();
+  toast('✓ Website tile added — tap ⚙ EDIT to set rules','t-s');
 }
 function _refreshTileEditorUI(){
   const m=MODES[editModeKey];if(!m)return;
@@ -1275,6 +1287,7 @@ function _refreshTileEditorUI(){
   const listEl=document.getElementById('te-tile-list');if(listEl)listEl.innerHTML=renderTileCards(m.tiles);
   const urlCountEl=document.getElementById('te-url-count');if(urlCountEl)urlCountEl.textContent='('+m.tiles.filter(t=>t.url).length+')';
   const urlListEl=document.getElementById('te-url-list');if(urlListEl)urlListEl.innerHTML=renderUrlChips(m.tiles.filter(t=>t.url));
+  const cfgEl=document.getElementById('te-url-configs');if(cfgEl)cfgEl.innerHTML=renderModeUrlConfigs(editModeKey);
 }
 
 function chips(arr,type){
@@ -1466,7 +1479,6 @@ function renderPanelModes(){
       <button class="mode-row-sw" style="border-color:rgba(0,255,136,0.35);color:var(--green)" onclick="toggleStartupFlow()">⚡ Auto-Start</button>
       <button class="mode-row-sw" id="blocking-btn" style="border-color:rgba(255,184,0,0.35);color:var(--amber)" onclick="toggleBlocking()">${appData?.blockingEnabled!==false?'🛡 Blocking ON':'🛡 Blocking OFF'}</button>
       <button class="mode-row-sw" style="border-color:rgba(0,200,255,0.35);color:var(--cyan)" onclick="manualCheckUpdate()">🔄 Check for Updates</button>
-      <button class="mode-row-sw" style="border-color:rgba(176,96,255,0.35);color:var(--purple)" onclick="openUrlSettings()">🌐 URL Filter Settings</button>
       ${LD.isElectron?'<button class="mode-row-sw" style="border-color:rgba(255,61,90,0.35);color:var(--red)" onclick="quitApp()">✕ Exit BrightGate</button>':''}
     </div></div>`;
   pb.appendChild(d);
@@ -1499,6 +1511,90 @@ async function savePinChange(){
   await persistAll();
   document.getElementById('pin-change-overlay')?.remove();
   toast('✓ PIN changed successfully','t-s');
+}
+
+/* ── Mode URL config renderer (used in tile editor) ── */
+function renderModeUrlConfigs(modeKey){
+  const m=MODES[modeKey];
+  if(!m)return'';
+  const configs=m.urlConfigs||(m.tiles||[]).filter(t=>t.url).map(t=>({
+    domain:t.url.replace(/^https?:\/\//,'').split('/')[0],
+    blockExternal:true,blockedKeys:[],allowedPaths:[]
+  }));
+  if(!configs.length)return`<div style="font-family:var(--fm);font-size:12px;color:var(--muted);padding:4px 0">No websites in this mode yet — add some above</div>`;
+  return configs.map((cfg,i)=>`
+    <div class="chip" style="flex-direction:column;align-items:flex-start;gap:5px;padding:10px 12px;margin-bottom:4px">
+      <div style="display:flex;align-items:center;gap:8px;width:100%">
+        <span style="font-size:16px">🌐</span>
+        <span style="flex:1;font-family:var(--fm);font-size:12px;font-weight:700;color:var(--text)">${cfg.domain}</span>
+        <button class="chip-del" style="color:var(--amber);border-color:rgba(255,184,0,0.3);width:auto;padding:0 8px;font-size:10px;font-family:var(--fd);letter-spacing:1px" onclick="editModeUrlConfig('${modeKey}',${i})">⚙ EDIT</button>
+      </div>
+      <div style="font-size:10px;color:var(--muted);font-family:var(--fm);padding-left:24px;line-height:1.7">
+        ${cfg.blockExternal?'🔒 External links blocked':'🔓 External links allowed'}
+        ${cfg.blockedKeys&&cfg.blockedKeys.length?' · 🚫 Blocks: '+cfg.blockedKeys.join(', '):''}
+        ${cfg.allowedPaths&&cfg.allowedPaths.length?' · ✓ Only: '+cfg.allowedPaths.join(', '):''}
+      </div>
+    </div>`).join('');
+}
+
+function editModeUrlConfig(modeKey, idx){
+  const m=MODES[modeKey];if(!m)return;
+  if(!m.urlConfigs)m.urlConfigs=[];
+  // Sync urlConfigs from tiles if empty
+  if(!m.urlConfigs.length){
+    m.urlConfigs=(m.tiles||[]).filter(t=>t.url).map(t=>({
+      domain:t.url.replace(/^https?:\/\//,'').split('/')[0],
+      blockExternal:true,blockedKeys:[],allowedPaths:[]
+    }));
+  }
+  const cfg=m.urlConfigs[idx];if(!cfg)return;
+  const existing=document.getElementById('mode-url-cfg-panel');
+  if(existing)existing.remove();
+  const panel=document.createElement('div');
+  panel.id='mode-url-cfg-panel';
+  panel.style.cssText='padding:14px;border-radius:10px;background:rgba(176,96,255,0.07);border:1px solid rgba(176,96,255,0.25);display:flex;flex-direction:column;gap:10px;margin-top:6px';
+  panel.innerHTML=`
+    <div style="font-family:var(--fd);font-size:10px;letter-spacing:2px;color:var(--purple)">CONFIGURE: ${cfg.domain}</div>
+    <label style="display:flex;align-items:center;gap:8px;font-size:13px;cursor:pointer">
+      <input type="checkbox" id="mcfg-ext" ${cfg.blockExternal?'checked':''} style="accent-color:var(--purple)">
+      Block external links (keep child on ${cfg.domain} only)
+    </label>
+    <div>
+      <div style="font-family:var(--fm);font-size:10px;color:var(--muted);margin-bottom:4px">BLOCKED KEYWORDS FOR THIS SITE (comma-separated)</div>
+      <input class="txt-in" id="mcfg-blocked" placeholder="e.g. games, play, forum, videos" value="${(cfg.blockedKeys||[]).join(', ')}">
+      <div style="font-family:var(--fm);font-size:10px;color:var(--muted);margin-top:4px">Any URL on ${cfg.domain} containing these words will show the blocked screen</div>
+    </div>
+    <div>
+      <div style="font-family:var(--fm);font-size:10px;color:var(--muted);margin-bottom:4px">ALLOWED PATHS ONLY (leave blank to allow whole site)</div>
+      <input class="txt-in" id="mcfg-paths" placeholder="e.g. /math, /science, /ela" value="${(cfg.allowedPaths||[]).join(', ')}">
+      <div style="font-family:var(--fm);font-size:10px;color:var(--muted);margin-top:4px">Child can only visit URLs starting with these paths</div>
+    </div>
+    <div style="display:flex;gap:8px">
+      <button class="add-btn" style="flex:1" onclick="saveModeUrlConfig('${modeKey}',${idx})">✓ SAVE RULES</button>
+      <button class="btn-secondary" onclick="document.getElementById('mode-url-cfg-panel').remove()" style="padding:10px 14px">CANCEL</button>
+    </div>`;
+  const configsEl=document.getElementById('te-url-configs');
+  if(configsEl)configsEl.after(panel);
+  else document.getElementById('te-body')?.appendChild(panel);
+}
+
+function saveModeUrlConfig(modeKey, idx){
+  const m=MODES[modeKey];if(!m||!m.urlConfigs)return;
+  const cfg=m.urlConfigs[idx];if(!cfg)return;
+  cfg.blockExternal=document.getElementById('mcfg-ext')?.checked||false;
+  const bk=document.getElementById('mcfg-blocked')?.value||'';
+  cfg.blockedKeys=bk.split(',').map(s=>s.trim()).filter(Boolean);
+  const ap=document.getElementById('mcfg-paths')?.value||'';
+  cfg.allowedPaths=ap.split(',').map(s=>s.trim()).filter(Boolean);
+  // Sync back to tiles
+  (m.tiles||[]).forEach(t=>{
+    if(t.url&&t.url.includes(cfg.domain))t.urlConfig=cfg;
+  });
+  document.getElementById('mode-url-cfg-panel')?.remove();
+  const cfgEl=document.getElementById('te-url-configs');
+  if(cfgEl)cfgEl.innerHTML=renderModeUrlConfigs(modeKey);
+  persistAll();
+  toast('✓ URL rules saved for '+cfg.domain,'t-s');
 }
 
 /* ── Global URL Settings ── */
