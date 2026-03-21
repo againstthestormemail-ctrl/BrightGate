@@ -820,7 +820,11 @@ function renderTileEditor(){
     <div class="divider"></div>
     <div>
       <div class="fl">ADD FROM INSTALLED APPS</div>
-      <div id="te-app-picker"></div>
+      <div id="te-app-picker">
+        <button class="add-tile-btn" id="te-populate-btn" onclick="populateApps('te-app-picker','te')">
+          🔍 POPULATE APPS — Scan this PC for installed programs
+        </button>
+      </div>
     </div>
     <div class="divider"></div>
     <div>
@@ -853,9 +857,6 @@ function renderTileEditor(){
       <div style="margin-top:10px">
         <div class="fl" style="margin-bottom:6px">URL FILTER RULES FOR THIS MODE <span class="hbtn" onclick="showTutorial('urls')">?</span></div>
         <div id="te-url-configs">${renderModeUrlConfigs(editModeKey)}</div>
-        <div style="margin-top:8px;display:flex;gap:8px;flex-wrap:wrap">
-          <button class="add-btn" onclick="openUrlSettings()" style="border-color:rgba(176,96,255,0.35);color:var(--purple)">⚙ Global Filter Settings</button>
-        </div>
       </div>
     </div>
     <div class="divider"></div>
@@ -867,9 +868,8 @@ function renderTileEditor(){
         <button class="add-btn" onclick="addCustomTile()">+ ADD</button>
       </div>
     </div>`;
-  // App picker — only show app tiles (not URL tiles) as selected
-  const appTiles = m.tiles.filter(t => !t.url);
-  renderAppPicker('te-app-picker', appTiles, (selected) => {
+  // Store callback for when user clicks "Populate Apps"
+  window._teAppCallback = (selected) => {
     const urlTiles = MODES[editModeKey].tiles.filter(t => t.url);
     MODES[editModeKey].tiles = [
       ...selected.map(a => ({
@@ -881,13 +881,10 @@ function renderTileEditor(){
       })),
       ...urlTiles
     ];
-    const countEl=document.getElementById('te-tile-count');
-    if(countEl)countEl.textContent='('+MODES[editModeKey].tiles.length+')';
-    const listEl=document.getElementById('te-tile-list');
-    if(listEl)listEl.innerHTML=renderTileCards(MODES[editModeKey].tiles);
+    _refreshTileEditorUI();
     if(currentMode===editModeKey)renderLauncher(currentMode);
     persistAll();
-  });
+  };
 }
 function renderTileCards(tiles){
   if(!tiles.length)return`<div style="font-family:var(--fm);font-size:12px;color:var(--muted);padding:6px 0">No tiles yet — add some below</div>`;
@@ -1102,20 +1099,25 @@ function renderStep2(body){
   body.innerHTML=`
     <div>
       <div class="fl">INSTALLED APPS <span class="hbtn" onclick="showTutorial('apps')">?</span></div>
-      <div id="builder-app-picker"></div>
+      <div id="builder-app-picker">
+        <button class="add-tile-btn" id="builder-populate-btn" onclick="populateApps('builder-app-picker','builder')">
+          🔍 POPULATE APPS — Scan this PC for installed programs
+        </button>
+      </div>
     </div>
     <div class="divider"></div>
     <div>
       <div class="fl" style="margin-top:2px">ADDED APPS <span style="color:var(--cyan)" id="builder-app-count">(${builderData.apps.length})</span></div>
       <div id="app-list">${chips(builderData.apps,'app')}</div>
     </div>`;
-  renderAppPicker('builder-app-picker', builderData.apps, (selected) => {
+  // Store callback for builder "Populate Apps"
+  window._builderAppCallback = (selected) => {
     builderData.apps = selected;
     const al = document.getElementById('app-list');
     if(al) al.innerHTML = chips(builderData.apps,'app');
     const countEl = document.getElementById('builder-app-count');
     if(countEl) countEl.textContent = '('+builderData.apps.length+')';
-  });
+  };
 }
 function renderStep3(body){
   body.innerHTML=`
@@ -1513,6 +1515,22 @@ async function savePinChange(){
   toast('✓ PIN changed successfully','t-s');
 }
 
+/* ── Lazy app scanner — triggered by "Populate Apps" button ── */
+async function populateApps(containerId, context) {
+  const btn = document.getElementById(containerId === 'te-app-picker' ? 'te-populate-btn' : 'builder-populate-btn');
+  if (btn) { btn.textContent = '⏳ Scanning installed apps… please wait'; btn.disabled = true; }
+
+  if (!scannedAppsLoaded) await loadScannedApps();
+
+  const selectedApps = context === 'te'
+    ? (MODES[editModeKey]?.tiles?.filter(t => !t.url) || [])
+    : (builderData.apps || []);
+
+  const callback = context === 'te' ? window._teAppCallback : window._builderAppCallback;
+
+  await renderAppPicker(containerId, selectedApps, callback);
+}
+
 /* ── Mode URL config renderer (used in tile editor) ── */
 function renderModeUrlConfigs(modeKey){
   const m=MODES[modeKey];
@@ -1597,76 +1615,45 @@ function saveModeUrlConfig(modeKey, idx){
   toast('✓ URL rules saved for '+cfg.domain,'t-s');
 }
 
-/* ── Global URL Settings ── */
-let urlSettingsData = null;
 
+/* ── Ad/tracker blocking toggle (only remaining global setting) ── */
 async function openUrlSettings(){
-  closeOverlay('parent-panel');
-  // Load current settings
-  if(LD.isElectron){
-    urlSettingsData = await LD.getUrlSettings();
-  } else {
-    urlSettingsData = {
-      globalBlockedKeys:['games','play','forum','chat','shop','store','login','signup'],
-      blockAds:true
-    };
-  }
+  // Now just opens an ad-block toggle — keywords are per mode
+  const current = LD.isElectron ? await LD.getUrlSettings() : {blockAds:true};
   const existing=document.getElementById('url-settings-overlay');
   if(existing)existing.remove();
   const ov=document.createElement('div');
   ov.id='url-settings-overlay';
   ov.style.cssText='position:fixed;inset:0;z-index:500;display:flex;align-items:center;justify-content:center;background:rgba(0,0,0,0.88);backdrop-filter:blur(10px)';
   ov.innerHTML=`
-    <div style="background:linear-gradient(160deg,#0d1a2e,#070e1c);border:1px solid rgba(176,96,255,0.3);border-radius:18px;padding:36px 40px;width:440px;display:flex;flex-direction:column;gap:18px;max-height:85vh;overflow-y:auto">
-      <div style="font-family:var(--fd);font-size:12px;letter-spacing:3px;color:var(--purple);text-align:center">🌐 GLOBAL URL FILTER SETTINGS</div>
-      <div style="font-size:13px;color:var(--muted);text-align:center;line-height:1.6">These rules apply to every approved website in every mode.</div>
-
-      <div>
-        <div class="fl" style="margin-bottom:6px">GLOBALLY BLOCKED KEYWORDS</div>
-        <div style="font-size:12px;color:var(--muted);margin-bottom:6px;font-family:var(--fm)">Any URL containing these words will be blocked (comma-separated)</div>
-        <textarea id="url-global-keys" style="width:100%;padding:10px 13px;border-radius:9px;border:1px solid rgba(176,96,255,0.3);background:rgba(176,96,255,0.06);color:var(--text);font-family:var(--fm);font-size:12px;outline:none;resize:vertical;min-height:80px;line-height:1.6">${(urlSettingsData.globalBlockedKeys||[]).join(', ')}</textarea>
-      </div>
-
-      <label style="display:flex;align-items:center;gap:10px;cursor:pointer;padding:10px 13px;border-radius:9px;background:rgba(0,200,255,0.05);border:1px solid var(--border)">
-        <input type="checkbox" id="url-block-ads" ${urlSettingsData.blockAds!==false?'checked':''} style="accent-color:var(--cyan);width:16px;height:16px;cursor:pointer">
+    <div style="background:linear-gradient(160deg,#0d1a2e,#070e1c);border:1px solid rgba(176,96,255,0.3);border-radius:18px;padding:32px 36px;width:380px;display:flex;flex-direction:column;gap:16px">
+      <div style="font-family:var(--fd);font-size:12px;letter-spacing:3px;color:var(--purple);text-align:center">🌐 BROWSER SETTINGS</div>
+      <label style="display:flex;align-items:center;gap:12px;cursor:pointer;padding:12px 14px;border-radius:10px;background:rgba(0,200,255,0.05);border:1px solid var(--border)">
+        <input type="checkbox" id="url-block-ads" ${current.blockAds!==false?'checked':''} style="accent-color:var(--cyan);width:18px;height:18px;cursor:pointer">
         <div>
           <div style="font-size:14px;font-weight:700">Block ads and trackers</div>
-          <div style="font-size:12px;color:var(--muted);font-family:var(--fm)">Blocks known ad networks, analytics and tracking domains</div>
+          <div style="font-size:12px;color:var(--muted);font-family:var(--fm);margin-top:2px">Blocks known ad networks and tracking domains on all sites</div>
         </div>
       </label>
-
-      <div style="padding:10px 13px;border-radius:9px;background:rgba(255,184,0,0.06);border:1px solid rgba(255,184,0,0.2)">
-        <div style="font-family:var(--fm);font-size:10px;color:var(--amber);margin-bottom:6px">DEFAULT BLOCKED KEYWORDS</div>
-        <div style="font-size:12px;color:var(--muted);line-height:1.7;font-family:var(--fm)">
-          games · play · forum · chat · shop · store · login · signup<br>
-          <span style="color:rgba(255,184,0,0.6)">Edit the field above to customise these for your family.</span>
-        </div>
+      <div style="padding:10px 14px;border-radius:9px;background:rgba(176,96,255,0.06);border:1px solid rgba(176,96,255,0.2);font-size:12px;color:var(--muted);line-height:1.7;font-family:var(--fm)">
+        💡 To block specific sections of a website (e.g. /games), use the URL rules inside each mode's edit screen.
       </div>
-
       <div style="display:flex;gap:10px">
-        <button onclick="saveUrlSettings()"
-          style="flex:1;padding:12px;border-radius:10px;border:none;background:linear-gradient(135deg,#7030c0,#b060ff);color:#fff;font-family:var(--fd);font-size:11px;font-weight:700;letter-spacing:2px;cursor:pointer">
-          SAVE SETTINGS
-        </button>
-        <button onclick="document.getElementById('url-settings-overlay').remove()"
-          style="padding:12px 18px;border-radius:10px;border:1px solid var(--border);background:transparent;color:var(--muted);font-family:var(--fd);font-size:10px;letter-spacing:1px;cursor:pointer">
-          CANCEL
-        </button>
+        <button onclick="saveUrlSettings()" style="flex:1;padding:12px;border-radius:10px;border:none;background:linear-gradient(135deg,#7030c0,#b060ff);color:#fff;font-family:var(--fd);font-size:11px;font-weight:700;letter-spacing:2px;cursor:pointer">SAVE</button>
+        <button onclick="document.getElementById('url-settings-overlay').remove()" style="padding:12px 18px;border-radius:10px;border:1px solid var(--border);background:transparent;color:var(--muted);font-family:var(--fd);font-size:10px;cursor:pointer">CANCEL</button>
       </div>
     </div>`;
   document.body.appendChild(ov);
 }
 
 async function saveUrlSettings(){
-  const keysRaw=document.getElementById('url-global-keys')?.value||'';
-  const keys=keysRaw.split(',').map(s=>s.trim().toLowerCase()).filter(Boolean);
   const blockAds=document.getElementById('url-block-ads')?.checked!==false;
-  const settings={globalBlockedKeys:keys,blockAds};
+  const settings={blockAds,globalBlockedKeys:[]};
   if(LD.isElectron) await LD.saveUrlSettings(settings);
-  urlSettingsData=settings;
   document.getElementById('url-settings-overlay')?.remove();
-  toast('✓ URL filter settings saved','t-s');
+  toast('✓ Browser settings saved','t-s');
 }
+
 function showUpdateBanner(newVersion){
   const existing=document.getElementById('update-banner');
   if(existing)existing.remove();

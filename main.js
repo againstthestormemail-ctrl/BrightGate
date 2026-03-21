@@ -196,9 +196,8 @@ function isAdDomain(hostname) {
 }
 
 function getGlobalBlockedKeys() {
-  return (appData && appData.urlSettings && appData.urlSettings.globalBlockedKeys)
-    ? appData.urlSettings.globalBlockedKeys
-    : ['games','play','forum','chat','shop','store','login','signup','adverti','gamble'];
+  // Blocked keywords are now per-site per-mode, not global
+  return [];
 }
 
 /**
@@ -364,18 +363,14 @@ function openLockedBrowser(tileLabel, startUrl, urlConfigs) {
 
   const fullUrl = startUrl.startsWith('http') ? startUrl : 'https://' + startUrl;
 
-  // Load our browser shell which wraps the target in a locked chrome
   win.loadFile(path.join(__dirname, 'src', 'browser.html'), {
-    query: { url: fullUrl, title: tileLabel, rules: JSON.stringify(rules), urlMode: urlMode || 'open' }
+    query: { url: fullUrl, title: tileLabel, configs: JSON.stringify(urlConfigs) }
   });
 
   const id = Date.now();
   webviewWindows[id] = win;
-  win.on('closed', () => { delete webviewWindows[id]; });
-
-  if (appData.kioskMode) {
-    win.on('minimize', () => win.restore());
-  }
+  win.on('closed', () => { delete webviewWindows[id]; if(mainWindow&&!mainWindow.isDestroyed())mainWindow.focus(); });
+  win.on('minimize', () => win.restore());
 }
 
 // ─── MAIN WINDOW ──────────────────────────────────────────────────────────────
@@ -495,7 +490,7 @@ ipcMain.handle('url:check', (e, url, urlConfigs) => {
 // Get/set global URL settings
 ipcMain.handle('urlSettings:get', () => {
   return appData.urlSettings || {
-    globalBlockedKeys: ['games','play','forum','chat','shop','store','login','signup'],
+    globalBlockedKeys: [], // keywords are now per-site in each mode
     blockAds: true
   };
 });
