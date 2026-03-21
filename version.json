@@ -1,5 +1,5 @@
 {
-  "version": "1.3.8",
+  "version": "1.3.9",
   "updatedAt": "2026-03-21",
-  "notes": "Lazy app scan button, blocked keywords per mode, fullscreen browser with close button, fixed internet"
+  "notes": "Fix website loading — permissive URL engine, proper webview config, fullscreen browser"
 }

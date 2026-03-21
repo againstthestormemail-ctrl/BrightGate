@@ -205,6 +205,7 @@ function getGlobalBlockedKeys() {
  * urlConfig: array of site config objects OR legacy array of rule strings
  */
 function checkUrl(urlString, urlConfigs) {
+  // Always allow internal pages
   if (!urlString || urlString === 'about:blank' || urlString.startsWith('file://')) {
     return { allowed: true, reason: 'internal' };
   }
@@ -217,82 +218,76 @@ function checkUrl(urlString, urlConfigs) {
   }
 
   const hostname = u.hostname.replace(/^www\./, '');
-  const fullUrl = hostname + u.pathname + u.search;
   const pathLower = (u.pathname + u.search).toLowerCase();
 
-  // Block ad/tracker domains globally
+  // Block known ad/tracker domains (only if enabled)
   if (appData && appData.urlSettings && appData.urlSettings.blockAds !== false) {
     if (isAdDomain(hostname)) {
       return { allowed: false, reason: 'ad_tracker' };
     }
   }
 
-  // Check global blocked keywords against the full path
-  const globalKeys = getGlobalBlockedKeys();
-  for (const key of globalKeys) {
-    if (pathLower.includes(key.toLowerCase())) {
-      return { allowed: false, reason: 'global_keyword', keyword: key };
-    }
+  // If no configs provided, allow everything (open mode)
+  if (!urlConfigs || urlConfigs.length === 0) {
+    return { allowed: true, reason: 'no_rules_open' };
   }
 
-  // Handle legacy string rules (backwards compat)
-  if (!urlConfigs || urlConfigs.length === 0) return { allowed: false, reason: 'no_rules' };
-
-  // If first element is a string, use legacy mode
+  // Handle legacy string rules
   if (typeof urlConfigs[0] === 'string') {
+    const fullPath = hostname + u.pathname;
     for (const rule of urlConfigs) {
       if (rule.startsWith('!')) continue;
       const clean = rule.replace(/^www\./, '').replace(/\/\*$/, '');
       const ruleDomain = clean.split('/')[0];
       if (hostname === ruleDomain || hostname.endsWith('.' + ruleDomain)) {
-        if (clean.includes('/') && !fullUrl.startsWith(clean)) continue;
+        if (clean.includes('/') && !fullPath.startsWith(clean)) continue;
         return { allowed: true, reason: 'legacy_rule' };
       }
     }
+    // Legacy: if no rule matched but configs exist, check if blockExternal applies
     return { allowed: false, reason: 'not_in_rules' };
   }
 
-  // New config object mode
+  // New config object mode — find matching domain config
   for (const cfg of urlConfigs) {
     if (!cfg || !cfg.domain) continue;
     const cfgDomain = cfg.domain.replace(/^www\./, '').replace(/\/\*$/, '').split('/')[0];
 
-    // Check if hostname matches this config's domain
+    // Check domain match (including subdomains like cdn.nationalgeographic.com)
     if (hostname !== cfgDomain && !hostname.endsWith('.' + cfgDomain)) continue;
 
-    // Domain matched — now apply per-site rules
+    // Domain matched — apply per-site rules
 
-    // Block external links if enabled
-    if (cfg.blockExternal) {
-      // Already matched domain above — this is fine
-    }
-
-    // Per-site blocked keywords
+    // Check per-site blocked keywords
     if (cfg.blockedKeys && cfg.blockedKeys.length > 0) {
       for (const key of cfg.blockedKeys) {
-        if (pathLower.includes(key.toLowerCase())) {
+        if (key && pathLower.includes(key.toLowerCase())) {
           return { allowed: false, reason: 'site_keyword', keyword: key };
         }
       }
     }
 
-    // Allowed subpaths — if specified, ONLY those paths are allowed
+    // Check allowed subpaths (only if specified)
     if (cfg.allowedPaths && cfg.allowedPaths.length > 0) {
-      const pathMatches = cfg.allowedPaths.some(p => {
+      const pathOk = cfg.allowedPaths.some(p => {
         const clean = p.startsWith('/') ? p : '/' + p;
         return u.pathname === '/' || u.pathname.startsWith(clean);
       });
-      if (!pathMatches) {
-        return { allowed: false, reason: 'path_not_allowed' };
-      }
+      if (!pathOk) return { allowed: false, reason: 'path_not_allowed' };
     }
 
     return { allowed: true, reason: 'approved_site' };
   }
 
-  // No config matched this domain
-  // If blockExternal is true on any config, block everything not in an approved domain
-  return { allowed: false, reason: 'domain_not_approved' };
+  // No domain config matched this hostname
+  // Only block if blockExternal is set on at least one config
+  const anyBlockExternal = urlConfigs.some(c => c && c.blockExternal);
+  if (anyBlockExternal) {
+    return { allowed: false, reason: 'external_blocked' };
+  }
+
+  // No restriction — allow it
+  return { allowed: true, reason: 'unrestricted' };
 }
 
 // Legacy wrapper — keep old signature working
@@ -313,53 +308,36 @@ function openLockedBrowser(tileLabel, startUrl, urlConfigs) {
   }
 
   const win = new BrowserWindow({
-    width: 1200,
+    width: 1280,
     height: 800,
-    fullscreen: appData.kioskMode,
-    parent: mainWindow,
-    backgroundColor: '#ffffff',
+    fullscreen: true,         // Always fullscreen for the browser
+    backgroundColor: '#04080f',
     title: tileLabel + ' — BrightGate',
     webPreferences: {
       nodeIntegration: false,
-      contextIsolation: true,
+      contextIsolation: false, // Must be false for webview tag to work properly
       sandbox: false,
-      webviewTag: true,
+      webviewTag: true,        // Required for <webview> tag
       devTools: false,
-      webSecurity: true,
-      allowRunningInsecureContent: false
+      webSecurity: false,      // Allow cross-origin in webview (sites need this)
+      allowRunningInsecureContent: true
     }
   });
 
   win.setMenuBarVisibility(false);
   win.removeMenu();
 
-  // Block navigation using full URL engine
+  // Only block navigation of the SHELL window itself (file:// to file://)
+  // The webview handles its own navigation — URL filtering happens client-side in browser.html
   win.webContents.on('will-navigate', (event, url) => {
-    if (url.startsWith('file://')) return;
-    const result = checkUrl(url, urlConfigs);
-    if (!result.allowed) {
+    // Allow file:// (our shell) — block anything else at the shell level
+    if (!url.startsWith('file://')) {
       event.preventDefault();
-      // Send block info to the browser shell
-      win.webContents.send('url-blocked', { url, reason: result.reason, keyword: result.keyword });
-      console.log('[Browser] Blocked:', url, reason);
     }
   });
 
-  win.webContents.on('will-redirect', (event, url) => {
-    if (url.startsWith('file://')) return;
-    const result = checkUrl(url, urlConfigs);
-    if (!result.allowed) {
-      event.preventDefault();
-      win.webContents.send('url-blocked', { url, reason: result.reason, keyword: result.keyword });
-    }
-  });
-
-  win.webContents.setWindowOpenHandler(({ url }) => {
-    const result = checkUrl(url, urlConfigs);
-    if (result.allowed) win.loadURL(url);
-    else win.webContents.send('url-blocked', { url, reason: result.reason });
-    return { action: 'deny' };
-  });
+  // Prevent shell from opening new windows
+  win.webContents.setWindowOpenHandler(() => ({ action: 'deny' }));
 
   const fullUrl = startUrl.startsWith('http') ? startUrl : 'https://' + startUrl;
 
