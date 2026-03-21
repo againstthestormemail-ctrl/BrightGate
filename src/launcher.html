@@ -1,0 +1,1275 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>BrightGate — Mission Control</title>
+<link href="https://fonts.googleapis.com/css2?family=Rajdhani:wght@400;500;600;700&family=Orbitron:wght@500;700;900&family=Share+Tech+Mono&display=swap" rel="stylesheet">
+<style>
+*,*::before,*::after{box-sizing:border-box;margin:0;padding:0}
+:root{
+  --space:#04080f;--border:rgba(0,200,255,0.15);--border2:rgba(0,200,255,0.3);
+  --cyan:#00c8ff;--cyan2:#00fff7;--amber:#ffb800;--green:#00ff88;
+  --red:#ff3d5a;--purple:#b060ff;--text:#d0e8ff;--muted:rgba(180,220,255,0.45);
+  --fd:'Orbitron',monospace;--fb:'Rajdhani',sans-serif;--fm:'Share Tech Mono',monospace;
+}
+*{-webkit-tap-highlight-color:transparent}
+body{font-family:var(--fb);background:var(--space);color:var(--text);min-height:100vh;overflow:hidden;user-select:none;font-size:16px}
+.stars{position:fixed;inset:0;z-index:0;pointer-events:none}
+.star{position:absolute;border-radius:50%;background:#fff;animation:twinkle var(--d,3s) var(--delay,0s) infinite}
+@keyframes twinkle{0%,100%{opacity:var(--o1,.8)}50%{opacity:var(--o2,.2)}}
+.nebula{position:fixed;border-radius:50%;filter:blur(90px);z-index:0;pointer-events:none;animation:drift 20s ease-in-out infinite alternate}
+@keyframes drift{0%{transform:translate(0,0)}100%{transform:translate(40px,20px)}}
+.hud{position:fixed;width:60px;height:60px;z-index:5;pointer-events:none}
+.tl{top:0;left:0;border-top:2px solid var(--cyan);border-left:2px solid var(--cyan)}
+.tr{top:0;right:0;border-top:2px solid var(--cyan);border-right:2px solid var(--cyan)}
+.bl{bottom:0;left:0;border-bottom:2px solid var(--cyan);border-left:2px solid var(--cyan)}
+.br{bottom:0;right:0;border-bottom:2px solid var(--cyan);border-right:2px solid var(--cyan)}
+.scan-line{position:fixed;left:0;right:0;height:1px;background:linear-gradient(90deg,transparent,rgba(0,200,255,0.35),transparent);z-index:4;pointer-events:none;animation:scan 9s linear infinite}
+@keyframes scan{0%{top:0;opacity:0}5%{opacity:1}95%{opacity:1}100%{top:100vh;opacity:0}}
+
+/* SCREENS */
+.screen{position:fixed;inset:0;z-index:10;display:flex;flex-direction:column;transition:opacity .35s,transform .35s}
+.screen.hidden{opacity:0;pointer-events:none;transform:scale(.97)}
+
+/* TOP BAR */
+.top-bar{display:flex;align-items:center;justify-content:space-between;padding:14px 32px;background:rgba(4,8,15,0.92);border-bottom:1px solid var(--border);backdrop-filter:blur(16px);position:relative;z-index:2;flex-shrink:0}
+.logo{font-family:var(--fd);font-size:20px;font-weight:900;letter-spacing:3px;color:var(--cyan);text-shadow:0 0 20px rgba(0,200,255,0.5)}
+.logo em{color:var(--cyan2);font-style:normal}
+.top-center{display:flex;flex-direction:column;align-items:center;gap:2px}
+.mode-badge{font-family:var(--fd);font-size:11px;letter-spacing:3px;padding:5px 16px;border-radius:20px;border:1px solid var(--border2);background:rgba(0,200,255,0.07);display:flex;align-items:center;gap:8px;transition:all .4s}
+.mode-dot{width:7px;height:7px;border-radius:50%;animation:pulse 2s infinite}
+@keyframes pulse{0%,100%{opacity:1}50%{opacity:.6}}
+.mode-sub{font-size:11px;color:var(--muted);letter-spacing:2px;font-family:var(--fm)}
+.top-right{display:flex;align-items:center;gap:10px}
+.clock{font-family:var(--fd);font-size:16px;color:var(--cyan2);letter-spacing:2px}
+.btn-parent{font-family:var(--fd);font-size:10px;letter-spacing:2px;padding:8px 14px;border-radius:6px;border:1px solid var(--amber);background:rgba(255,184,0,0.08);color:var(--amber);cursor:pointer;transition:all .2s}
+.btn-parent:hover{background:rgba(255,184,0,0.18);box-shadow:0 0 16px rgba(255,184,0,0.3)}
+
+/* LAUNCHER BODY */
+.launcher-body{flex:1;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:28px;padding:20px;position:relative;z-index:1;overflow:hidden}
+.mode-headline{font-family:var(--fd);font-size:12px;letter-spacing:5px;color:var(--muted);text-transform:uppercase}
+.tiles-grid{display:flex;flex-wrap:wrap;gap:16px;justify-content:center;max-width:820px}
+
+/* TILE */
+.tile{width:150px;height:150px;border-radius:16px;border:1px solid var(--border);background:linear-gradient(145deg,rgba(16,25,40,0.9),rgba(8,14,26,0.95));display:flex;flex-direction:column;align-items:center;justify-content:center;gap:9px;cursor:pointer;transition:all .22s;position:relative;overflow:hidden}
+.tile:hover{transform:translateY(-4px) scale(1.04);border-color:var(--tile-c,var(--cyan));box-shadow:0 8px 32px rgba(0,0,0,0.5),0 0 18px var(--tile-glow,rgba(0,200,255,0.2))}
+.tile:active{transform:scale(.97)}
+.tile-icon{font-size:42px;line-height:1}
+.tile-label{font-size:12px;font-weight:700;letter-spacing:.5px;text-align:center;padding:0 8px}
+.tile-pip{position:absolute;top:9px;right:9px;width:6px;height:6px;border-radius:50%;background:var(--tile-c,var(--cyan));opacity:.6}
+.tile-edit-btn{position:absolute;top:8px;left:8px;width:22px;height:22px;border-radius:6px;background:rgba(0,0,0,0.5);border:1px solid rgba(255,255,255,0.15);color:rgba(255,255,255,0.5);font-size:11px;display:flex;align-items:center;justify-content:center;cursor:pointer;opacity:0;transition:opacity .2s}
+.tile:hover .tile-edit-btn{opacity:1}
+.tile-edit-btn:hover{background:rgba(255,184,0,0.25);border-color:var(--amber);color:var(--amber)}
+
+/* BOTTOM BAR */
+.bottom-bar{padding:10px 32px;border-top:1px solid var(--border);background:rgba(4,8,15,0.92);backdrop-filter:blur(16px);display:flex;align-items:center;justify-content:space-between;flex-shrink:0;position:relative;z-index:2}
+.status-row{display:flex;align-items:center;gap:20px}
+.si{font-family:var(--fm);font-size:11px;color:var(--muted);display:flex;align-items:center;gap:6px}
+.s-dot{width:5px;height:5px;border-radius:50%;background:var(--green)}
+
+/* LOCKED */
+#locked{align-items:center;justify-content:center;background:radial-gradient(ellipse at center,#060c18,#020408)}
+.lock-wrap{display:flex;flex-direction:column;align-items:center;gap:24px;animation:riseIn .5s ease}
+@keyframes riseIn{from{opacity:0;transform:translateY(24px)}to{opacity:1;transform:translateY(0)}}
+.lock-ring{width:100px;height:100px;border-radius:50%;border:2px solid rgba(255,61,90,0.4);display:flex;align-items:center;justify-content:center;font-size:40px;background:rgba(255,61,90,0.08);animation:lp 3s ease infinite}
+@keyframes lp{0%,100%{box-shadow:0 0 40px rgba(255,61,90,0.12)}50%{box-shadow:0 0 60px rgba(255,61,90,0.28)}}
+.lock-title{font-family:var(--fd);font-size:22px;letter-spacing:4px;color:#ff8096}
+.lock-sub{font-size:15px;color:var(--muted);text-align:center;line-height:1.7;max-width:280px}
+.pin-dots{display:flex;gap:14px}
+.pin-dot{width:16px;height:16px;border-radius:50%;border:2px solid rgba(255,255,255,0.2);transition:all .15s}
+.pin-dot.on{background:var(--cyan);border-color:var(--cyan);box-shadow:0 0 10px var(--cyan)}
+@keyframes wiggle{0%,100%{transform:translateX(0)}25%{transform:translateX(-5px)}75%{transform:translateX(5px)}}
+.numpad{display:grid;grid-template-columns:repeat(3,1fr);gap:10px;width:210px}
+.npb{height:54px;border-radius:10px;border:1px solid rgba(0,200,255,0.15);background:rgba(0,200,255,0.05);color:var(--text);font-family:var(--fd);font-size:18px;cursor:pointer;transition:all .15s}
+.npb:hover{background:rgba(0,200,255,0.15);border-color:rgba(0,200,255,0.4)}
+.npb:active{transform:scale(.93)}
+.lock-hint{font-family:var(--fm);font-size:11px;color:rgba(255,255,255,0.15)}
+
+/* COUNTDOWN */
+#countdown{align-items:center;justify-content:center;background:rgba(2,4,10,.92);backdrop-filter:blur(10px)}
+.cd-box{display:flex;flex-direction:column;align-items:center;gap:22px;text-align:center;padding:20px}
+.cd-badge{padding:5px 18px;border-radius:30px;background:rgba(255,184,0,0.12);border:1px solid rgba(255,184,0,0.4);font-family:var(--fm);font-size:11px;letter-spacing:3px;color:var(--amber)}
+.cd-title{font-family:var(--fd);font-size:20px;font-weight:700}
+.cd-ring{position:relative;display:flex;align-items:center;justify-content:center}
+.cd-ring svg{position:absolute;transform:rotate(-90deg)}
+.cd-num{font-family:var(--fd);font-size:52px;font-weight:900;color:var(--amber);width:160px;height:160px;display:flex;align-items:center;justify-content:center}
+.cd-sub{font-size:15px;color:var(--muted);line-height:1.7}
+.cd-skip{padding:10px 26px;border-radius:30px;border:1px solid rgba(255,255,255,0.15);background:transparent;color:var(--muted);font-family:var(--fb);font-size:14px;cursor:pointer;transition:all .2s}
+.cd-skip:hover{border-color:rgba(255,255,255,0.3);color:var(--text)}
+
+/* OVERLAYS */
+.overlay{position:fixed;inset:0;z-index:50;display:flex;align-items:center;justify-content:center;background:rgba(0,0,0,0.78);backdrop-filter:blur(8px);opacity:0;pointer-events:none;transition:opacity .3s}
+.overlay.open{opacity:1;pointer-events:all}
+@keyframes popIn{from{transform:scale(.88);opacity:0}to{transform:scale(1);opacity:1}}
+
+/* SHARED SHELL */
+.shell{border-radius:20px;display:flex;flex-direction:column;overflow:hidden;animation:popIn .3s cubic-bezier(.2,1.4,.4,1)}
+.sh-head{padding:18px 22px;border-bottom:1px solid var(--border);display:flex;align-items:center;justify-content:space-between;flex-shrink:0}
+.sh-title{font-family:var(--fd);font-size:12px;letter-spacing:3px}
+.sh-close{width:30px;height:30px;border-radius:7px;border:1px solid var(--border);background:transparent;color:var(--muted);cursor:pointer;font-size:15px;display:flex;align-items:center;justify-content:center;transition:all .2s}
+.sh-close:hover{border-color:var(--red);color:var(--red)}
+.sh-body{flex:1;overflow-y:auto;padding:20px 22px;display:flex;flex-direction:column;gap:15px}
+.sh-body::-webkit-scrollbar{width:4px}
+.sh-body::-webkit-scrollbar-thumb{background:var(--border);border-radius:2px}
+.sh-foot{padding:14px 22px;border-top:1px solid var(--border);display:flex;gap:10px;flex-shrink:0}
+
+/* COMMON COMPONENTS */
+.sec-label{font-family:var(--fm);font-size:10px;letter-spacing:3px;color:var(--muted);text-transform:uppercase;margin-bottom:5px}
+.divider{height:1px;background:var(--border)}
+.txt-in{width:100%;padding:10px 13px;border-radius:9px;border:1px solid var(--border);background:rgba(0,200,255,0.04);color:var(--text);font-family:var(--fb);font-size:15px;outline:none;transition:border .2s}
+.txt-in:focus{border-color:rgba(0,200,255,0.4)}
+.fl{font-family:var(--fm);font-size:11px;letter-spacing:2px;color:var(--muted);margin-bottom:5px;display:flex;align-items:center;gap:7px}
+.hbtn{width:17px;height:17px;border-radius:50%;border:1px solid rgba(0,200,255,0.4);background:rgba(0,200,255,0.08);color:var(--cyan);font-size:10px;cursor:pointer;display:flex;align-items:center;justify-content:center;transition:all .15s;font-family:var(--fd)}
+.hbtn:hover{background:rgba(0,200,255,0.2)}
+.btn-primary{flex:1;padding:11px;border-radius:10px;border:none;background:linear-gradient(135deg,#007a4d,#00ff88);color:#020a05;font-family:var(--fd);font-size:11px;font-weight:700;letter-spacing:2px;cursor:pointer;transition:all .2s}
+.btn-primary:hover{filter:brightness(1.1);transform:translateY(-1px)}
+.btn-secondary{padding:11px 18px;border-radius:10px;border:1px solid var(--border);background:transparent;color:var(--muted);font-family:var(--fd);font-size:10px;letter-spacing:1px;cursor:pointer;transition:all .2s}
+.btn-secondary:hover{border-color:var(--text);color:var(--text)}
+.btn-amber{flex:1;padding:11px;border-radius:10px;border:none;background:linear-gradient(135deg,#c48800,#ffb800);color:#040810;font-family:var(--fd);font-size:11px;font-weight:700;letter-spacing:2px;cursor:pointer;transition:all .2s}
+.btn-amber:hover{filter:brightness(1.1);transform:translateY(-1px)}
+.chip{display:flex;align-items:center;gap:9px;padding:8px 11px;border-radius:8px;background:rgba(0,200,255,0.06);border:1px solid var(--border);font-size:13px;animation:slideIn .2s ease}
+@keyframes slideIn{from{opacity:0;transform:translateX(-6px)}to{opacity:1;transform:translateX(0)}}
+.chip-lbl{flex:1;font-family:var(--fm);font-size:12px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.chip-del{width:20px;height:20px;border-radius:5px;border:none;background:transparent;color:rgba(255,61,90,0.4);cursor:pointer;font-size:13px;display:flex;align-items:center;justify-content:center;transition:all .15s;flex-shrink:0}
+.chip-del:hover{background:rgba(255,61,90,0.15);color:var(--red)}
+.add-row{display:flex;gap:8px}
+.add-row .txt-in{flex:1}
+.add-btn{padding:10px 14px;border-radius:9px;border:1px solid rgba(0,200,255,0.3);background:rgba(0,200,255,0.08);color:var(--cyan);font-family:var(--fd);font-size:10px;letter-spacing:1px;cursor:pointer;transition:all .18s;white-space:nowrap;flex-shrink:0}
+.add-btn:hover{background:rgba(0,200,255,0.18);border-color:var(--cyan)}
+
+/* PIN GATE */
+.gate-box{background:linear-gradient(160deg,#0d1a2e,#070e1c);border:1px solid rgba(255,184,0,0.3);border-radius:20px;padding:38px 42px;display:flex;flex-direction:column;align-items:center;gap:18px;width:350px;box-shadow:0 0 60px rgba(255,184,0,0.1);animation:popIn .3s cubic-bezier(.2,1.4,.4,1)}
+.gate-icon{font-size:34px}
+.gate-title{font-family:var(--fd);font-size:12px;letter-spacing:3px;color:var(--amber);text-align:center}
+.gate-sub{font-size:14px;color:var(--muted);text-align:center;line-height:1.6}
+.gate-input{width:100%;padding:11px 14px;border-radius:10px;border:1px solid rgba(255,184,0,0.3);background:rgba(255,184,0,0.06);color:var(--text);font-family:var(--fd);font-size:18px;letter-spacing:6px;text-align:center;outline:none;transition:border .2s}
+.gate-input:focus{border-color:var(--amber)}
+.gate-input.shake{animation:wiggle .3s ease}
+.gate-cancel{font-size:13px;color:var(--muted);cursor:pointer;font-family:var(--fm)}
+.gate-cancel:hover{color:var(--text)}
+.gate-hint{font-family:var(--fm);font-size:11px;color:rgba(255,255,255,0.18)}
+
+/* PARENT PANEL */
+.mode-row{display:flex;align-items:center;gap:13px;padding:12px 14px;border-radius:11px;border:1px solid transparent;transition:all .18s}
+.mode-row:hover{background:rgba(0,200,255,0.06);border-color:var(--border);cursor:pointer}
+.mode-row.active{background:rgba(0,200,255,0.1);border-color:rgba(0,200,255,0.3)}
+.mode-row-icon{width:40px;height:40px;border-radius:9px;background:rgba(255,255,255,0.06);display:flex;align-items:center;justify-content:center;font-size:20px;flex-shrink:0}
+.mode-row-info{flex:1}
+.mode-row-name{font-weight:700;font-size:14px}
+.mode-row-meta{font-size:11px;color:var(--muted);font-family:var(--fm)}
+.mode-row-badge{font-family:var(--fm);font-size:10px;padding:3px 9px;border-radius:20px;background:rgba(0,200,255,0.15);color:var(--cyan)}
+.mode-row-sw{padding:5px 12px;border-radius:18px;border:1px solid var(--border);background:transparent;color:var(--muted);font-family:var(--fm);font-size:11px;cursor:pointer;transition:all .18s;white-space:nowrap}
+.mode-row-sw:hover{border-color:var(--cyan);color:var(--cyan)}
+.mode-row-edit{padding:5px 12px;border-radius:18px;border:1px solid rgba(255,184,0,0.3);background:transparent;color:var(--amber);font-family:var(--fm);font-size:11px;cursor:pointer;transition:all .18s;white-space:nowrap;margin-left:4px}
+.mode-row-edit:hover{background:rgba(255,184,0,0.1)}
+.btn-new-mode{width:100%;padding:13px;border-radius:11px;border:1px dashed rgba(0,255,136,0.35);background:rgba(0,255,136,0.04);color:var(--green);font-family:var(--fd);font-size:10px;letter-spacing:2px;cursor:pointer;transition:all .2s;display:flex;align-items:center;justify-content:center;gap:9px}
+.btn-new-mode:hover{background:rgba(0,255,136,0.1);border-color:rgba(0,255,136,0.6)}
+.btn-calendar{width:100%;padding:13px;border-radius:11px;border:1px dashed rgba(176,96,255,0.35);background:rgba(176,96,255,0.04);color:var(--purple);font-family:var(--fd);font-size:10px;letter-spacing:2px;cursor:pointer;transition:all .2s;display:flex;align-items:center;justify-content:center;gap:9px}
+.btn-calendar:hover{background:rgba(176,96,255,0.1);border-color:rgba(176,96,255,0.6)}
+.stat-grid{display:grid;grid-template-columns:1fr 1fr;gap:8px}
+.stat-card{padding:9px 11px;border-radius:9px;background:rgba(0,200,255,0.05);border:1px solid var(--border)}
+.stat-lbl{font-family:var(--fm);font-size:9px;color:var(--muted);margin-bottom:3px}
+.stat-val{font-family:var(--fd);font-size:12px;letter-spacing:1px}
+
+/* BUILDER / EDITOR */
+.step-pips{display:flex;gap:5px}
+.pip{width:22px;height:4px;border-radius:2px;background:rgba(255,255,255,0.1);transition:background .3s}
+.pip.done{background:var(--green)}.pip.active{background:rgba(0,255,136,0.5)}
+.icon-pick{display:flex;flex-wrap:wrap;gap:7px}
+.io{width:42px;height:42px;border-radius:9px;border:1px solid var(--border);background:rgba(255,255,255,0.04);cursor:pointer;font-size:20px;display:flex;align-items:center;justify-content:center;transition:all .15s}
+.io:hover,.io.sel{border-color:var(--cyan);background:rgba(0,200,255,0.12)}
+.io.sel{box-shadow:0 0 10px rgba(0,200,255,0.2)}
+.col-pick{display:flex;gap:9px}
+.co{width:30px;height:30px;border-radius:7px;cursor:pointer;border:2px solid transparent;transition:all .15s;position:relative}
+.co:hover{transform:scale(1.15)}
+.co.sel::after{content:'✓';position:absolute;inset:0;display:flex;align-items:center;justify-content:center;font-size:13px;font-weight:700;color:#fff}
+.preset-grid{display:flex;flex-wrap:wrap;gap:7px}
+
+/* APP PICKER */
+.ap-shell{display:flex;flex-direction:column;gap:10px}
+.ap-search{width:100%;padding:9px 13px;border-radius:9px;border:1px solid var(--border);background:rgba(0,200,255,0.04);color:var(--text);font-family:var(--fb);font-size:14px;outline:none;transition:border .2s}
+.ap-search:focus{border-color:rgba(0,200,255,0.4)}
+.ap-list{max-height:260px;overflow-y:auto;display:flex;flex-direction:column;gap:4px;padding-right:4px}
+.ap-list::-webkit-scrollbar{width:4px}
+.ap-list::-webkit-scrollbar-thumb{background:var(--border);border-radius:2px}
+.ap-item{display:flex;align-items:center;gap:10px;padding:8px 11px;border-radius:8px;border:1px solid transparent;cursor:pointer;transition:all .15s}
+.ap-item:hover{background:rgba(0,200,255,0.06);border-color:var(--border)}
+.ap-item.selected{background:rgba(0,255,136,0.08);border-color:rgba(0,255,136,0.35)}
+.ap-item-icon{font-size:20px;width:32px;text-align:center;flex-shrink:0}
+.ap-item-info{flex:1;overflow:hidden}
+.ap-item-name{font-size:13px;font-weight:700;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.ap-item-exe{font-size:11px;color:var(--muted);font-family:var(--fm);overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.ap-item-check{width:20px;height:20px;border-radius:5px;border:1px solid var(--border);background:transparent;flex-shrink:0;display:flex;align-items:center;justify-content:center;font-size:12px;color:var(--green)}
+.ap-item.selected .ap-item-check{background:rgba(0,255,136,0.15);border-color:rgba(0,255,136,0.4)}
+.ap-scanning{text-align:center;padding:30px;font-family:var(--fm);font-size:12px;color:var(--muted)}
+.ap-count{font-family:var(--fm);font-size:11px;color:var(--muted);text-align:right}
+.preset{display:flex;align-items:center;gap:7px;padding:6px 11px;border-radius:7px;border:1px solid var(--border);background:rgba(255,255,255,0.03);cursor:pointer;transition:all .15s;font-size:13px}
+.preset:hover{border-color:var(--cyan);background:rgba(0,200,255,0.08)}
+.preset.added{border-color:var(--green);color:var(--green);background:rgba(0,255,136,0.06)}
+.quick-urls{display:flex;flex-wrap:wrap;gap:6px;margin-top:5px}
+.qurl{font-size:12px;padding:4px 9px;border-radius:7px;border:1px solid var(--border);background:rgba(255,255,255,0.03);cursor:pointer;transition:all .15s;font-family:var(--fm)}
+.qurl:hover{border-color:var(--cyan);background:rgba(0,200,255,0.08)}
+.info-box{padding:11px 13px;border-radius:9px;background:rgba(176,96,255,0.06);border:1px solid rgba(176,96,255,0.2)}
+.info-box-title{font-family:var(--fm);font-size:10px;color:var(--purple);margin-bottom:5px}
+.info-box-body{font-size:13px;color:var(--muted);line-height:1.7}
+.info-box-body b{color:var(--text)}
+
+/* TILE EDITOR */
+.tile-edit-grid{display:grid;grid-template-columns:1fr 1fr;gap:8px}
+.te-card{padding:10px 12px;border-radius:10px;background:rgba(255,255,255,0.03);border:1px solid var(--border);display:flex;align-items:center;gap:10px;transition:all .18s}
+.te-card:hover{border-color:rgba(0,200,255,0.3);background:rgba(0,200,255,0.05)}
+.te-icon{font-size:24px;width:38px;height:38px;background:rgba(255,255,255,0.06);border-radius:8px;display:flex;align-items:center;justify-content:center;flex-shrink:0}
+.te-info{flex:1;overflow:hidden}
+.te-name{font-size:13px;font-weight:700;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.te-type{font-size:11px;color:var(--muted);font-family:var(--fm)}
+.te-actions{display:flex;gap:5px;flex-shrink:0}
+.te-btn{width:26px;height:26px;border-radius:6px;border:1px solid var(--border);background:transparent;color:var(--muted);cursor:pointer;font-size:12px;display:flex;align-items:center;justify-content:center;transition:all .15s}
+.te-btn:hover.edit-b{border-color:var(--amber);color:var(--amber);background:rgba(255,184,0,0.1)}
+.te-btn:hover.del-b{border-color:var(--red);color:var(--red);background:rgba(255,61,90,0.1)}
+.add-tile-btn{width:100%;padding:11px;border-radius:9px;border:1px dashed rgba(0,200,255,0.3);background:rgba(0,200,255,0.03);color:var(--cyan);font-family:var(--fd);font-size:10px;letter-spacing:2px;cursor:pointer;transition:all .2s}
+.add-tile-btn:hover{background:rgba(0,200,255,0.08);border-color:rgba(0,200,255,0.5)}
+
+/* CALENDAR */
+.cal-shell{background:linear-gradient(160deg,#0b1220,#060c18);border:1px solid rgba(176,96,255,0.25);width:min(780px,96vw);max-height:90vh}
+.day-tabs{display:flex;gap:0;overflow-x:auto;flex-shrink:0;border-bottom:1px solid var(--border)}
+.day-tabs::-webkit-scrollbar{height:0}
+.day-tab{flex:1;min-width:60px;padding:10px 4px;font-family:var(--fd);font-size:9px;letter-spacing:1px;text-align:center;cursor:pointer;border-bottom:2px solid transparent;transition:all .18s;color:var(--muted);background:transparent;border:none;position:relative}
+.day-tab:hover{color:var(--text)}
+.day-tab.active{color:var(--purple);border-bottom:2px solid var(--purple)}
+.day-tab .dot{width:5px;height:5px;border-radius:50%;background:var(--green);position:absolute;top:6px;right:6px;opacity:0}
+.day-tab.has-sched .dot{opacity:1}
+.cal-content{display:flex;gap:0;flex:1;overflow:hidden}
+.cal-timeline{flex:1;overflow-y:auto;padding:16px 20px;display:flex;flex-direction:column;gap:8px}
+.cal-timeline::-webkit-scrollbar{width:4px}
+.cal-timeline::-webkit-scrollbar-thumb{background:var(--border);border-radius:2px}
+.time-slot{display:flex;align-items:center;gap:10px;min-height:40px}
+.time-label{font-family:var(--fm);font-size:10px;color:var(--muted);width:42px;flex-shrink:0;text-align:right}
+.slot-bar{flex:1;height:36px;border-radius:8px;border:1px dashed rgba(255,255,255,0.08);background:rgba(255,255,255,0.02);display:flex;align-items:center;padding:0 10px;cursor:pointer;transition:all .18s;position:relative;overflow:hidden}
+.slot-bar:hover{border-color:rgba(176,96,255,0.4);background:rgba(176,96,255,0.06)}
+.slot-bar.filled{border-style:solid;cursor:default}
+.slot-bar.filled:hover{opacity:.9}
+.slot-mode-label{font-family:var(--fd);font-size:10px;letter-spacing:1px;font-weight:700}
+.slot-del{position:absolute;right:6px;top:50%;transform:translateY(-50%);width:20px;height:20px;border-radius:5px;border:none;background:rgba(0,0,0,0.3);color:rgba(255,255,255,0.5);font-size:11px;cursor:pointer;display:flex;align-items:center;justify-content:center;opacity:0;transition:opacity .15s}
+.slot-bar.filled:hover .slot-del{opacity:1}
+.slot-del:hover{color:#fff !important}
+
+.cal-sidebar{width:200px;flex-shrink:0;border-left:1px solid var(--border);padding:16px;display:flex;flex-direction:column;gap:12px;overflow-y:auto}
+.cal-sidebar::-webkit-scrollbar{width:3px}
+.cal-sidebar::-webkit-scrollbar-thumb{background:var(--border);border-radius:2px}
+.mode-palette-item{display:flex;align-items:center;gap:9px;padding:8px 10px;border-radius:9px;cursor:pointer;border:1px solid transparent;transition:all .18s}
+.mode-palette-item:hover{background:rgba(255,255,255,0.04);border-color:var(--border)}
+.mode-palette-item.selected{border-color:rgba(176,96,255,0.5);background:rgba(176,96,255,0.1)}
+.palette-dot{width:10px;height:10px;border-radius:50%;flex-shrink:0}
+.palette-name{font-size:12px;font-weight:700;flex:1}
+.copy-section{display:flex;flex-direction:column;gap:6px}
+.copy-btn{padding:8px;border-radius:8px;border:1px solid var(--border);background:transparent;color:var(--muted);font-family:var(--fm);font-size:10px;letter-spacing:1px;cursor:pointer;transition:all .18s;text-align:center}
+.copy-btn:hover{border-color:var(--purple);color:var(--purple);background:rgba(176,96,255,0.08)}
+.day-check{display:flex;align-items:center;gap:7px;font-size:13px;cursor:pointer;padding:4px 0}
+.day-check input{accent-color:var(--purple);width:14px;height:14px;cursor:pointer}
+
+/* SLOT PICKER MODAL */
+.slot-picker{background:linear-gradient(160deg,#0e1a2e,#080e1c);border:1px solid rgba(176,96,255,0.3);border-radius:16px;padding:24px;width:320px;display:flex;flex-direction:column;gap:16px;animation:popIn .25s cubic-bezier(.2,1.4,.4,1)}
+.sp-title{font-family:var(--fd);font-size:12px;letter-spacing:3px;color:var(--purple);text-align:center}
+.sp-time{font-family:var(--fm);font-size:14px;color:var(--muted);text-align:center}
+.mode-btn-grid{display:flex;flex-direction:column;gap:7px}
+.mode-btn{padding:10px 14px;border-radius:9px;border:1px solid var(--border);background:rgba(255,255,255,0.03);cursor:pointer;transition:all .18s;display:flex;align-items:center;gap:10px;text-align:left}
+.mode-btn:hover{border-color:rgba(176,96,255,0.5);background:rgba(176,96,255,0.08)}
+.mode-btn-icon{font-size:18px}
+.mode-btn-name{font-family:var(--fd);font-size:11px;letter-spacing:1px}
+.sp-cancel{font-size:13px;color:var(--muted);cursor:pointer;font-family:var(--fm);text-align:center}
+.sp-cancel:hover{color:var(--text)}
+
+/* TUTORIAL */
+.tut-box{background:linear-gradient(160deg,#0f1e35,#080f1d);border:1px solid rgba(176,96,255,0.35);border-radius:18px;max-width:380px;width:90%;padding:30px 28px;display:flex;flex-direction:column;align-items:center;gap:15px;animation:popIn .3s cubic-bezier(.2,1.4,.4,1)}
+.tut-emoji{font-size:46px}
+.tut-title{font-family:var(--fd);font-size:13px;letter-spacing:3px;color:var(--purple);text-align:center}
+.tut-body{font-size:14px;color:var(--text);text-align:center;line-height:1.7;max-width:300px}
+.tut-tip{width:100%;padding:9px 13px;border-radius:9px;background:rgba(176,96,255,0.08);border:1px solid rgba(176,96,255,0.2);font-family:var(--fm);font-size:11px;color:var(--purple);text-align:center;line-height:1.6}
+.tut-btn{padding:10px 26px;border-radius:9px;border:none;background:linear-gradient(135deg,#7030c0,#b060ff);color:#fff;font-family:var(--fd);font-size:10px;letter-spacing:2px;cursor:pointer;transition:all .2s}
+.tut-btn:hover{filter:brightness(1.15);transform:translateY(-1px)}
+
+/* TOAST */
+.toast{position:fixed;bottom:68px;left:50%;transform:translateX(-50%);padding:10px 20px;border-radius:28px;font-size:13px;font-weight:600;z-index:200;white-space:nowrap;font-family:var(--fm);letter-spacing:1px;animation:toastIn .3s ease,toastOut .3s ease 1.9s forwards;pointer-events:none}
+@keyframes toastIn{from{opacity:0;transform:translateX(-50%) translateY(8px)}to{opacity:1;transform:translateX(-50%) translateY(0)}}
+@keyframes toastOut{to{opacity:0;transform:translateX(-50%) translateY(8px)}}
+.t-s{background:rgba(0,255,136,0.15);border:1px solid rgba(0,255,136,0.4);color:var(--green)}
+.t-i{background:rgba(0,200,255,0.12);border:1px solid rgba(0,200,255,0.35);color:var(--cyan)}
+.t-w{background:rgba(255,184,0,0.12);border:1px solid rgba(255,184,0,0.35);color:var(--amber)}
+</style>
+</head>
+<body>
+
+<div class="stars" id="stars"></div>
+<div class="nebula" style="width:600px;height:600px;top:-200px;left:-150px;background:rgba(0,80,180,0.07)"></div>
+<div class="nebula" style="width:500px;height:500px;bottom:-100px;right:-100px;background:rgba(80,0,160,0.07);animation-direction:alternate-reverse"></div>
+<div class="hud tl"></div><div class="hud tr"></div><div class="hud bl"></div><div class="hud br"></div>
+<div class="scan-line"></div>
+
+<!-- LAUNCHER -->
+<div class="screen" id="launcher">
+  <div class="top-bar">
+    <div class="logo">BRIGHT<em>GATE</em></div>
+    <div class="top-center">
+      <div class="mode-badge" id="mode-badge">
+        <div class="mode-dot" id="mode-dot"></div>
+        <span id="mode-label-top">LEARNING MODE</span>
+      </div>
+      <div class="mode-sub">MISSION: ACTIVE</div>
+    </div>
+    <div class="top-right">
+      <div class="clock" id="clock">--:--</div>
+      <button class="btn-parent" onclick="openPinGate()">⚙ PARENT</button>
+    </div>
+  </div>
+  <div class="launcher-body">
+    <div class="mode-headline" id="mode-headline">Explore. Learn. Build.</div>
+    <div class="tiles-grid" id="tiles-grid"></div>
+  </div>
+  <div class="bottom-bar">
+    <div class="status-row">
+      <div class="si"><div class="s-dot"></div>ONLINE</div>
+      <div class="si">Andrew's PC</div>
+      <div class="si" style="color:var(--amber)" id="next-sched">⏱ Fun Time @ 5:00 PM</div>
+    </div>
+    <div style="font-family:var(--fm);font-size:11px;color:rgba(255,255,255,0.12)">BRIGHTGATE v1.0</div>
+  </div>
+</div>
+
+<!-- LOCKED -->
+<div class="screen hidden" id="locked">
+  <div class="lock-wrap">
+    <div class="lock-ring">🔒</div>
+    <div class="lock-title">DEVICE LOCKED</div>
+    <div class="lock-sub">Computer time is paused.<br>Ask a parent to unlock.</div>
+    <div class="pin-dots"><div class="pin-dot" id="ld0"></div><div class="pin-dot" id="ld1"></div><div class="pin-dot" id="ld2"></div><div class="pin-dot" id="ld3"></div></div>
+    <div class="numpad" id="lock-numpad"></div>
+    <div class="lock-hint">Enter any 4-digit PIN to unlock (demo)</div>
+  </div>
+</div>
+
+<!-- COUNTDOWN -->
+<div class="screen hidden" id="countdown">
+  <div class="cd-box">
+    <div class="cd-badge">⚡ MODE CHANGING</div>
+    <div class="cd-title" id="cd-title">Switching to Fun Time</div>
+    <div class="cd-ring">
+      <svg width="160" height="160" viewBox="0 0 160 160"><circle cx="80" cy="80" r="68" fill="none" stroke="rgba(255,255,255,0.07)" stroke-width="8"/><circle id="cd-arc" cx="80" cy="80" r="68" fill="none" stroke="#ffb800" stroke-width="8" stroke-linecap="round" stroke-dasharray="427" stroke-dashoffset="0"/></svg>
+      <div class="cd-num" id="cd-num">5:00</div>
+    </div>
+    <div class="cd-sub"><span style="color:var(--text);font-weight:700" id="cd-app">Math Trainer</span> will close when the timer ends.<br>Please wrap up what you're doing!</div>
+    <button class="cd-skip" onclick="skipCountdown()">Close Now</button>
+  </div>
+</div>
+
+<!-- OVERLAY: PIN GATE -->
+<div class="overlay" id="pin-gate">
+  <div class="gate-box">
+    <div class="gate-icon">🛸</div>
+    <div class="gate-title">PARENT COMMAND DECK</div>
+    <div class="gate-sub">Enter any PIN or password<br>to access Mission Control</div>
+    <input class="gate-input" id="gate-input" type="password" placeholder="••••••" maxlength="20" autocomplete="off" oninput="this.classList.remove('shake')" onkeydown="if(event.key==='Enter')gateSubmit()">
+    <button class="btn-amber" onclick="gateSubmit()">ENTER COMMAND DECK →</button>
+    <div class="gate-cancel" onclick="closeOverlay('pin-gate')">✕ Cancel</div>
+    <div class="gate-hint">Any entry grants access in this demo</div>
+  </div>
+</div>
+
+<!-- OVERLAY: PARENT PANEL -->
+<div class="overlay" id="parent-panel">
+  <div class="shell" style="background:linear-gradient(160deg,#0a1628,#060d1a);border:1px solid rgba(0,200,255,0.2);width:500px;max-height:85vh;box-shadow:0 0 80px rgba(0,0,0,0.8)">
+    <div class="sh-head"><div class="sh-title" style="color:var(--cyan)">🛸 MISSION CONTROL</div><button class="sh-close" onclick="closeOverlay('parent-panel')">✕</button></div>
+    <div class="sh-body">
+      <div><div class="sec-label">Current Mode — tap to switch</div><div id="panel-mode-list"></div></div>
+      <div class="divider"></div>
+      <div><div class="sec-label">Tools</div>
+        <div style="display:flex;flex-direction:column;gap:8px">
+          <button class="btn-new-mode" onclick="openBuilder()"><span style="font-size:16px">＋</span> SETUP NEW MODE</button>
+          <button class="btn-calendar" onclick="openCalendar()"><span style="font-size:16px">📅</span> SCHEDULE CALENDAR</button>
+        </div>
+      </div>
+      <div class="divider"></div>
+      <div><div class="sec-label">Device Status</div>
+        <div class="stat-grid">
+          <div class="stat-card"><div class="stat-lbl">CONNECTION</div><div class="stat-val" style="color:var(--green)">● ONLINE</div></div>
+          <div class="stat-card"><div class="stat-lbl">DEVICE</div><div class="stat-val" style="color:var(--cyan)">Andrew's PC</div></div>
+          <div class="stat-card"><div class="stat-lbl">ACTIVE SINCE</div><div class="stat-val">3:02 PM</div></div>
+          <div class="stat-card"><div class="stat-lbl">NEXT CHANGE</div><div class="stat-val" style="color:var(--amber)" id="panel-next">5:00 PM</div></div>
+        </div>
+      </div>
+    </div>
+  </div>
+</div>
+
+<!-- OVERLAY: MODE BUILDER / EDITOR -->
+<div class="overlay" id="mode-builder">
+  <div class="shell" style="background:linear-gradient(160deg,#0a1628,#060d1a);border:1px solid rgba(0,255,136,0.2);width:560px;max-height:88vh;box-shadow:0 0 80px rgba(0,0,0,0.8)">
+    <div class="sh-head">
+      <div class="sh-title" style="color:var(--green)" id="builder-step-title">STEP 1 — NAME YOUR MODE</div>
+      <div class="step-pips" id="step-pips"></div>
+    </div>
+    <div class="sh-body" id="builder-body"></div>
+    <div class="sh-foot">
+      <button class="btn-secondary" id="btn-back" onclick="builderBack()">← BACK</button>
+      <button class="btn-primary" id="btn-next" onclick="builderNext()">NEXT STEP →</button>
+    </div>
+  </div>
+</div>
+
+<!-- OVERLAY: TILE EDITOR -->
+<div class="overlay" id="tile-editor">
+  <div class="shell" style="background:linear-gradient(160deg,#0a1628,#060d1a);border:1px solid rgba(255,184,0,0.2);width:520px;max-height:85vh;box-shadow:0 0 80px rgba(0,0,0,0.8)">
+    <div class="sh-head"><div class="sh-title" style="color:var(--amber)" id="te-title">EDIT TILES — LEARNING</div><button class="sh-close" onclick="closeOverlay('tile-editor')">✕</button></div>
+    <div class="sh-body" id="te-body"></div>
+    <div class="sh-foot">
+      <button class="btn-secondary" onclick="closeOverlay('tile-editor')">DONE</button>
+    </div>
+  </div>
+</div>
+
+<!-- OVERLAY: CALENDAR -->
+<div class="overlay" id="cal-overlay">
+  <div class="shell cal-shell">
+    <div class="sh-head" style="flex-shrink:0">
+      <div class="sh-title" style="color:var(--purple)">📅 MISSION SCHEDULE</div>
+      <button class="sh-close" onclick="closeOverlay('cal-overlay')">✕</button>
+    </div>
+    <div class="day-tabs" id="day-tabs"></div>
+    <div class="cal-content">
+      <div class="cal-timeline" id="cal-timeline"></div>
+      <div class="cal-sidebar">
+        <div>
+          <div class="sec-label" style="margin-bottom:8px">Mode Palette</div>
+          <div class="mode-palette-item selected" id="pal-clear" onclick="selectPalette(null)">
+            <div class="palette-dot" style="background:rgba(255,255,255,0.2);border:1px dashed rgba(255,255,255,0.3)"></div>
+            <span class="palette-name" style="color:var(--muted)">Clear Slot</span>
+          </div>
+          <div id="mode-palette"></div>
+        </div>
+        <div class="divider"></div>
+        <div class="copy-section">
+          <div class="sec-label">Apply To Days</div>
+          <div id="copy-day-checks"></div>
+          <button class="copy-btn" onclick="applyToSelected()">APPLY THIS SCHEDULE →</button>
+        </div>
+        <div class="divider"></div>
+        <div>
+          <div class="sec-label" style="margin-bottom:6px">Templates</div>
+          <button class="copy-btn" onclick="applyTemplate('school')">📚 School Day</button>
+          <button class="copy-btn" style="margin-top:5px" onclick="applyTemplate('weekend')">🎉 Weekend</button>
+        </div>
+      </div>
+    </div>
+    <div class="sh-foot">
+      <button class="btn-secondary" onclick="closeOverlay('cal-overlay')">CLOSE</button>
+      <button class="btn-primary" onclick="saveSchedule()">SAVE SCHEDULE</button>
+    </div>
+  </div>
+</div>
+
+<!-- OVERLAY: SLOT PICKER -->
+<div class="overlay" id="slot-picker">
+  <div class="slot-picker">
+    <div class="sp-title">ASSIGN MODE</div>
+    <div class="sp-time" id="sp-time">7:00 AM – 8:00 AM</div>
+    <div class="mode-btn-grid" id="sp-mode-list"></div>
+    <div class="sp-cancel" onclick="closeOverlay('slot-picker')">✕ Cancel</div>
+  </div>
+</div>
+
+<!-- OVERLAY: TUTORIAL -->
+<div class="overlay" id="tutorial">
+  <div class="tut-box">
+    <div class="tut-emoji" id="tut-emoji">🚀</div>
+    <div class="tut-title" id="tut-title">MISSION BRIEFING</div>
+    <div class="tut-body" id="tut-body"></div>
+    <div class="tut-tip" id="tut-tip"></div>
+    <button class="tut-btn" onclick="closeOverlay('tutorial')">GOT IT →</button>
+  </div>
+</div>
+
+<script>
+/* ══ MODES DATA ══ */
+const MODES = {
+  learning:{label:'LEARNING',tagline:'Explore. Learn. Build.',color:'#00c8ff',tiles:[
+    {icon:'🧮',label:'Math Trainer',c:'#00c8ff'},{icon:'🌐',label:'Khan Academy',c:'#00c8ff'},
+    {icon:'📖',label:'Reading Lab',c:'#42d4f5'},{icon:'🔬',label:'Science Videos',c:'#42d4f5'},
+    {icon:'✏️',label:'Writing Tools',c:'#00c8ff'},{icon:'🗺️',label:'Geography Quiz',c:'#5cbcf5'},
+  ]},
+  funtime:{label:'FUN TIME',tagline:'Play. Create. Explore.',color:'#ff60b0',tiles:[
+    {icon:'🎮',label:'Minecraft',c:'#ff60b0'},{icon:'🎨',label:'Paint Studio',c:'#b060ff'},
+    {icon:'🎵',label:'Music Maker',c:'#ff60b0'},{icon:'🦖',label:'Dino Game',c:'#ff9040'},
+    {icon:'🧩',label:'Puzzle World',c:'#b060ff'},
+  ]},
+  watchtime:{label:'WATCH TIME',tagline:'Relax. Watch. Enjoy.',color:'#b060ff',tiles:[
+    {icon:'▶️',label:'YouTube Kids',c:'#b060ff'},{icon:'🎬',label:'Movie Club',c:'#b060ff'},
+    {icon:'🌿',label:'Nature Docs',c:'#6b42f5'},
+  ]},
+  locked:{label:'LOCKED',tagline:'',color:'#ff3d5a',tiles:[]}
+};
+
+/* schedule: array of 7 days, each = array of {hour, modeKey} */
+const DAYS = ['Monday','Tuesday','Wednesday','Thursday','Friday','Saturday','Sunday'];
+const HOURS = [6,7,8,9,10,11,12,13,14,15,16,17,18,19,20,21,22];
+let schedule = DAYS.map(()=>({})); // day index → {hour: modeKey}
+
+let currentMode='learning', pendingMode=null, countdownSecs=300, cdInterval=null;
+let editModeKey=null, selectedPaletteMode=null, activeDay=0;
+let pendingSlot=null; // {dayIdx, hour}
+let builderStep=0, builderEditKey=null;
+let builderData={name:'',icon:'📚',color:'#00c8ff',apps:[],urls:[]};
+const BUILDER_STEPS=3;
+
+// Scanned apps cache — populated on first open of app picker
+let scannedApps = [];
+let scannedAppsLoaded = false;
+
+async function loadScannedApps() {
+  if (!LD.isElectron) {
+    // Browser demo fallback
+    scannedApps = [
+      {name:'Minecraft',exePath:'C:\\Program Files\\Minecraft\\Minecraft.exe',exeName:'Minecraft.exe',icon:'🎮'},
+      {name:'Google Chrome',exePath:'C:\\Program Files\\Google\\Chrome\\Application\\chrome.exe',exeName:'chrome.exe',icon:'🌐'},
+      {name:'Notepad',exePath:'C:\\Windows\\notepad.exe',exeName:'notepad.exe',icon:'📝'},
+      {name:'Calculator',exePath:'C:\\Windows\\System32\\calc.exe',exeName:'calc.exe',icon:'🧮'},
+      {name:'Paint',exePath:'C:\\Windows\\System32\\mspaint.exe',exeName:'mspaint.exe',icon:'🎨'},
+      {name:'VLC Media Player',exePath:'C:\\Program Files\\VideoLAN\\VLC\\vlc.exe',exeName:'vlc.exe',icon:'▶️'},
+    ];
+    scannedAppsLoaded = true;
+    return;
+  }
+  scannedApps = await LD.scanApps();
+  scannedAppsLoaded = true;
+}
+
+// Guess a nice icon for an app based on its name
+function guessIcon(name) {
+  const n = name.toLowerCase();
+  if (n.includes('minecraft') || n.includes('game') || n.includes('steam')) return '🎮';
+  if (n.includes('chrome') || n.includes('firefox') || n.includes('edge') || n.includes('browser')) return '🌐';
+  if (n.includes('spotify') || n.includes('music') || n.includes('itunes')) return '🎵';
+  if (n.includes('vlc') || n.includes('video') || n.includes('player') || n.includes('media')) return '▶️';
+  if (n.includes('zoom') || n.includes('teams') || n.includes('skype') || n.includes('discord')) return '💬';
+  if (n.includes('word') || n.includes('office') || n.includes('docs')) return '📝';
+  if (n.includes('excel') || n.includes('sheets')) return '📊';
+  if (n.includes('paint') || n.includes('photo') || n.includes('gimp') || n.includes('canva')) return '🎨';
+  if (n.includes('code') || n.includes('studio') || n.includes('visual')) return '💻';
+  if (n.includes('calc')) return '🧮';
+  if (n.includes('roblox')) return '🧱';
+  if (n.includes('scratch')) return '🐱';
+  if (n.includes('khan')) return '📚';
+  return '📦';
+}
+
+// Render the real app picker inside a container element
+async function renderAppPicker(containerId, selectedApps, onToggle) {
+  const container = document.getElementById(containerId);
+  if (!container) return;
+  container.innerHTML = `<div class="ap-scanning">⚡ Scanning installed apps…</div>`;
+
+  if (!scannedAppsLoaded) await loadScannedApps();
+
+  function renderList(filter = '') {
+    const filtered = scannedApps.filter(a =>
+      !filter || a.name.toLowerCase().includes(filter.toLowerCase()) ||
+      a.exeName.toLowerCase().includes(filter.toLowerCase())
+    );
+    const listEl = document.getElementById(containerId + '-list');
+    if (!listEl) return;
+    if (!filtered.length) {
+      listEl.innerHTML = `<div class="ap-scanning">No apps found matching "${filter}"</div>`;
+      return;
+    }
+    listEl.innerHTML = filtered.map((a, i) => {
+      const isSelected = selectedApps.some(s => s.exePath === a.exePath);
+      const icon = guessIcon(a.name);
+      return `<div class="ap-item ${isSelected ? 'selected' : ''}" id="api-${i}" onclick="toggleAppItem(${i}, '${containerId}')">
+        <div class="ap-item-icon">${icon}</div>
+        <div class="ap-item-info">
+          <div class="ap-item-name">${a.name}</div>
+          <div class="ap-item-exe">${a.exeName}</div>
+        </div>
+        <div class="ap-item-check">${isSelected ? '✓' : ''}</div>
+      </div>`;
+    }).join('');
+    document.getElementById(containerId + '-count').textContent =
+      `${filtered.length} apps found · ${selectedApps.length} selected`;
+  }
+
+  container.innerHTML = `
+    <div class="ap-shell">
+      <input class="ap-search" id="${containerId}-search" placeholder="🔍  Search apps…"
+        oninput="document.getElementById('${containerId}-list') && renderAppPickerFilter('${containerId}', this.value)">
+      <div class="ap-count" id="${containerId}-count">${scannedApps.length} apps found · ${selectedApps.length} selected</div>
+      <div class="ap-list" id="${containerId}-list"></div>
+    </div>`;
+  renderList('');
+
+  // Store callback for toggle
+  window._apPickerCallbacks = window._apPickerCallbacks || {};
+  window._apPickerCallbacks[containerId] = { apps: scannedApps, selected: selectedApps, onToggle };
+}
+
+function renderAppPickerFilter(containerId, filter) {
+  const cb = window._apPickerCallbacks?.[containerId];
+  if (!cb) return;
+  const filtered = cb.apps.filter(a =>
+    !filter || a.name.toLowerCase().includes(filter.toLowerCase()) ||
+    a.exeName.toLowerCase().includes(filter.toLowerCase())
+  );
+  const listEl = document.getElementById(containerId + '-list');
+  if (!listEl) return;
+  if (!filtered.length) {
+    listEl.innerHTML = `<div class="ap-scanning">No apps matching "${filter}"</div>`;
+    return;
+  }
+  listEl.innerHTML = filtered.map((a, i) => {
+    const isSelected = cb.selected.some(s => s.exePath === a.exePath);
+    const icon = guessIcon(a.name);
+    return `<div class="ap-item ${isSelected ? 'selected' : ''}" id="apif-${i}" onclick="toggleAppItemFiltered(${i}, '${containerId}', '${filter.replace(/'/g,"\\'")}')">
+      <div class="ap-item-icon">${icon}</div>
+      <div class="ap-item-info">
+        <div class="ap-item-name">${a.name}</div>
+        <div class="ap-item-exe">${a.exeName}</div>
+      </div>
+      <div class="ap-item-check">${isSelected ? '✓' : ''}</div>
+    </div>`;
+  }).join('');
+  document.getElementById(containerId + '-count').textContent =
+    `${filtered.length} apps found · ${cb.selected.length} selected`;
+}
+
+function toggleAppItem(idx, containerId) {
+  const cb = window._apPickerCallbacks?.[containerId];
+  if (!cb) return;
+  const app = cb.apps[idx];
+  if (!app) return;
+  const existingIdx = cb.selected.findIndex(s => s.exePath === app.exePath);
+  if (existingIdx >= 0) cb.selected.splice(existingIdx, 1);
+  else cb.selected.push({ ...app, icon: guessIcon(app.name) });
+  if (cb.onToggle) cb.onToggle(cb.selected);
+  // Re-render
+  const filter = document.getElementById(containerId + '-search')?.value || '';
+  renderAppPickerFilter(containerId, filter);
+  document.getElementById(containerId + '-count').textContent =
+    `${cb.apps.length} apps found · ${cb.selected.length} selected`;
+}
+
+function toggleAppItemFiltered(filteredIdx, containerId, filter) {
+  const cb = window._apPickerCallbacks?.[containerId];
+  if (!cb) return;
+  const filtered = cb.apps.filter(a =>
+    !filter || a.name.toLowerCase().includes(filter.toLowerCase()) ||
+    a.exeName.toLowerCase().includes(filter.toLowerCase())
+  );
+  const app = filtered[filteredIdx];
+  if (!app) return;
+  const realIdx = cb.apps.indexOf(app);
+  toggleAppItem(realIdx, containerId);
+}
+const MODE_ICONS=['📚','🎮','🎨','🔬','✏️','▶️','🎵','🏆','🧪','🚀','🌍','💡'];
+const MODE_COLORS=['#00c8ff','#ff60b0','#b060ff','#00ff88','#ffb800','#ff6040','#40ff80','#60b0ff'];
+
+/* ══ STARS ══ */
+(()=>{const c=document.getElementById('stars');for(let i=0;i<140;i++){const s=document.createElement('div');s.className='star';const sz=Math.random()*2.5+.5;s.style.cssText=`width:${sz}px;height:${sz}px;top:${Math.random()*100}%;left:${Math.random()*100}%;--d:${2+Math.random()*4}s;--delay:${Math.random()*5}s;--o1:${.5+Math.random()*.5};--o2:${.1+Math.random()*.2}`;c.appendChild(s);}})();
+
+/* ══ CLOCK ══ */
+function tick(){const n=new Date();document.getElementById('clock').textContent=n.getHours().toString().padStart(2,'0')+':'+n.getMinutes().toString().padStart(2,'0')}
+tick();setInterval(tick,10000);
+
+/* ══ LAUNCHER ══ */
+function renderLauncher(mode){
+  const m=MODES[mode];
+  document.getElementById('mode-label-top').textContent=m.label+' MODE';
+  document.getElementById('mode-dot').style.cssText=`width:7px;height:7px;border-radius:50%;background:${m.color};animation:pulse 2s infinite`;
+  document.getElementById('mode-badge').style.borderColor=m.color+'55';
+  document.getElementById('mode-headline').textContent=m.tagline;
+  const g=document.getElementById('tiles-grid');g.innerHTML='';
+  m.tiles.forEach((t,i)=>{
+    const d=document.createElement('div');d.className='tile';
+    d.style.setProperty('--tile-c',t.c);d.style.setProperty('--tile-glow',t.c+'33');
+    d.innerHTML=`<div class="tile-pip"></div><div class="tile-edit-btn" title="Edit tiles" onclick="event.stopPropagation();openTileEditor('${mode}')">✏</div><div class="tile-icon">${t.icon}</div><div class="tile-label">${t.label}</div>`;
+    d.addEventListener('click',()=>toast('🚀 Launching '+t.label+'…','t-i'));
+    g.appendChild(d);
+  });
+  if(!m.tiles.length&&mode!=='locked'){
+    g.innerHTML=`<div style="text-align:center;color:var(--muted);font-family:var(--fm);font-size:13px;padding:40px 20px">No tiles yet.<br><span style="color:var(--cyan);cursor:pointer" onclick="openTileEditor('${mode}')">+ Add tiles to this mode</span></div>`;
+  }
+}
+
+/* ══ SCREENS ══ */
+function showScreen(id){['launcher','locked','countdown'].forEach(s=>document.getElementById(s).classList.toggle('hidden',s!==id))}
+
+/* ══ OVERLAYS ══ */
+function openOverlay(id){document.getElementById(id).classList.add('open')}
+function closeOverlay(id){document.getElementById(id).classList.remove('open')}
+
+/* ══ PIN GATE ══ */
+function openPinGate(){document.getElementById('gate-input').value='';openOverlay('pin-gate');setTimeout(()=>document.getElementById('gate-input').focus(),200)}
+function gateSubmit(){const v=document.getElementById('gate-input').value.trim();if(!v){document.getElementById('gate-input').classList.add('shake');return;}closeOverlay('pin-gate');renderPanelModes();openOverlay('parent-panel')}
+
+/* ══ PARENT PANEL ══ */
+function renderPanelModes(){
+  document.getElementById('panel-mode-list').innerHTML=Object.entries(MODES).map(([k,m])=>`
+    <div class="mode-row ${k===currentMode?'active':''}">
+      <div class="mode-row-icon" onclick="requestSwitch('${k}')" style="cursor:pointer">${m.tiles[0]?m.tiles[0].icon:'🔒'}</div>
+      <div class="mode-row-info" onclick="requestSwitch('${k}')" style="cursor:pointer">
+        <div class="mode-row-name">${m.label}</div>
+        <div class="mode-row-meta">${m.tiles.length} tiles</div>
+      </div>
+      ${k===currentMode?'<span class="mode-row-badge">ACTIVE</span>':''}
+      ${k!=='locked'?`<button class="mode-row-edit" onclick="event.stopPropagation();openTileEditorFromPanel('${k}')">✏ EDIT</button>`:''}
+      ${k!==currentMode?`<button class="mode-row-sw" onclick="event.stopPropagation();requestSwitch('${k}')">ACTIVATE</button>`:''}
+    </div>`).join('');
+}
+function openTileEditorFromPanel(k){closeOverlay('parent-panel');openTileEditor(k)}
+function requestSwitch(mode){
+  closeOverlay('parent-panel');
+  if(mode===currentMode)return;
+  if(mode==='locked'){currentMode='locked';renderLauncher('locked');showScreen('locked');return;}
+  if(currentMode==='locked')return;
+  pendingMode=mode;
+  document.getElementById('cd-title').textContent='Switching to '+MODES[mode].label;
+  document.getElementById('cd-app').textContent=MODES[currentMode].tiles[0]?.label||'Current App';
+  startCountdown(300);showScreen('countdown');
+}
+
+/* ══ COUNTDOWN ══ */
+function startCountdown(s){
+  clearInterval(cdInterval);countdownSecs=s;const total=s,circ=427;
+  function upd(){const m=Math.floor(countdownSecs/60),sec=countdownSecs%60;document.getElementById('cd-num').textContent=m+':'+(sec<10?'0':'')+sec;document.getElementById('cd-arc').style.strokeDashoffset=circ*(1-countdownSecs/total);if(countdownSecs<=0){clearInterval(cdInterval);finishSwitch();}countdownSecs--;}
+  upd();cdInterval=setInterval(upd,1000);
+}
+function skipCountdown(){clearInterval(cdInterval);finishSwitch()}
+function finishSwitch(){currentMode=pendingMode;renderLauncher(currentMode);showScreen('launcher');toast('⚡ Mode: '+MODES[currentMode].label,'t-s')}
+
+/* ══ LOCK ══ */
+let lockPin='';
+(()=>{const pad=document.getElementById('lock-numpad');['1','2','3','4','5','6','7','8','9','','0','⌫'].forEach(k=>{const b=document.createElement('button');b.className='npb'+(k==='⌫'?' del':'');b.textContent=k;if(!k)b.style.cssText='opacity:0;pointer-events:none';b.onclick=()=>handleLock(k);pad.appendChild(b);});})();
+function handleLock(k){
+  if(k==='⌫')lockPin=lockPin.slice(0,-1);else if(lockPin.length<4)lockPin+=k;
+  for(let i=0;i<4;i++)document.getElementById('ld'+i).classList.toggle('on',i<lockPin.length);
+  if(lockPin.length===4){setTimeout(()=>{currentMode='learning';renderLauncher('learning');showScreen('launcher');lockPin='';for(let i=0;i<4;i++)document.getElementById('ld'+i).classList.remove('on');toast('🔓 Device unlocked','t-s');},180);}
+}
+
+/* ══════════════════════════════════════
+   TILE EDITOR
+══════════════════════════════════════ */
+function openTileEditor(modeKey){
+  editModeKey=modeKey;
+  document.getElementById('te-title').textContent='EDIT TILES — '+MODES[modeKey].label;
+  renderTileEditor();
+  openOverlay('tile-editor');
+}
+function renderTileEditor(){
+  const m=MODES[editModeKey];
+  const body=document.getElementById('te-body');
+  body.innerHTML=`
+    <div>
+      <div class="fl">CURRENT TILES (${m.tiles.length}) <span class="hbtn" onclick="showTutorial('tiles')">?</span></div>
+      <div id="te-tile-list">${renderTileCards(m.tiles)}</div>
+    </div>
+    <div class="divider"></div>
+    <div>
+      <div class="fl">INSTALLED APPS <span class="hbtn" onclick="showTutorial('apps')">?</span></div>
+      <div id="te-app-picker"></div>
+    </div>
+    <div class="divider"></div>
+    <div>
+      <div class="fl">OR ADD CUSTOM TILE</div>
+      <div style="display:flex;flex-direction:column;gap:8px">
+        <div class="add-row">
+          <input class="txt-in" id="te-icon-in" placeholder="Icon emoji" style="width:70px;flex:none;text-align:center;font-size:20px">
+          <input class="txt-in" id="te-name-in" placeholder="Tile label e.g. My App" onkeydown="if(event.key==='Enter')addCustomTile()">
+          <button class="add-btn" onclick="addCustomTile()">+ ADD</button>
+        </div>
+      </div>
+    </div>`;
+  // Render real app picker
+  renderAppPicker('te-app-picker', MODES[editModeKey].tiles, (selected) => {
+    MODES[editModeKey].tiles = selected.map(a => ({
+      icon: a.icon || guessIcon(a.name),
+      label: a.name,
+      c: MODES[editModeKey].color,
+      execPath: a.exePath,
+      exeName: a.exeName
+    }));
+    if (currentMode === editModeKey) renderLauncher(currentMode);
+  });}
+function renderTileCards(tiles){
+  if(!tiles.length)return`<div style="font-family:var(--fm);font-size:12px;color:var(--muted);padding:6px 0">No tiles yet — add some below</div>`;
+  return`<div class="tile-edit-grid">${tiles.map((t,i)=>`
+    <div class="te-card">
+      <div class="te-icon">${t.icon}</div>
+      <div class="te-info"><div class="te-name">${t.label}</div><div class="te-type">App tile</div></div>
+      <div class="te-actions">
+        <button class="te-btn edit-b" title="Edit" onclick="editTile(${i})">✏</button>
+        <button class="te-btn del-b" title="Remove" onclick="removeTile(${i})">✕</button>
+      </div>
+    </div>`).join('')}</div>`;
+}
+function toggleTilePreset(i){
+  const a=PRESET_APPS[i];const m=MODES[editModeKey];
+  const idx=m.tiles.findIndex(t=>t.label===a.name);
+  if(idx>=0){m.tiles.splice(idx,1);}
+  else{m.tiles.push({icon:a.icon,label:a.name,c:m.color});}
+  document.getElementById('tep'+i)?.classList.toggle('added',idx<0);
+  document.getElementById('te-tile-list').innerHTML=renderTileCards(m.tiles);
+  if(currentMode===editModeKey)renderLauncher(currentMode);
+}
+function addCustomTile(){
+  const icon=document.getElementById('te-icon-in').value.trim()||'📦';
+  const name=document.getElementById('te-name-in').value.trim();
+  if(!name){toast('Enter a tile name','t-w');return;}
+  MODES[editModeKey].tiles.push({icon,label:name,c:MODES[editModeKey].color});
+  document.getElementById('te-icon-in').value='';document.getElementById('te-name-in').value='';
+  document.getElementById('te-tile-list').innerHTML=renderTileCards(MODES[editModeKey].tiles);
+  if(currentMode===editModeKey)renderLauncher(currentMode);
+  toast('Tile added','t-s');
+}
+function removeTile(i){
+  const removed=MODES[editModeKey].tiles[i];
+  MODES[editModeKey].tiles.splice(i,1);
+  PRESET_APPS.forEach((a,pi)=>{if(a.name===removed.label)document.getElementById('tep'+pi)?.classList.remove('added');});
+  document.getElementById('te-tile-list').innerHTML=renderTileCards(MODES[editModeKey].tiles);
+  if(currentMode===editModeKey)renderLauncher(currentMode);
+}
+function editTile(i){
+  const t=MODES[editModeKey].tiles[i];
+  const newIcon=prompt('New icon emoji (leave blank to keep):','') || t.icon;
+  const newName=prompt('New tile label (leave blank to keep):','') || t.label;
+  MODES[editModeKey].tiles[i]={...t,icon:newIcon,label:newName};
+  document.getElementById('te-tile-list').innerHTML=renderTileCards(MODES[editModeKey].tiles);
+  if(currentMode===editModeKey)renderLauncher(currentMode);
+}
+
+/* ══════════════════════════════════════
+   CALENDAR
+══════════════════════════════════════ */
+function openCalendar(){
+  closeOverlay('parent-panel');
+  activeDay=0;selectedPaletteMode=null;
+  renderDayTabs();renderCalTimeline();renderModePalette();renderCopyChecks();
+  openOverlay('cal-overlay');
+}
+function fmt(h){const ampm=h<12?'AM':'PM';const h12=h===0?12:h>12?h-12:h;return`${h12}:00 ${ampm}`}
+function renderDayTabs(){
+  const c=document.getElementById('day-tabs');
+  c.innerHTML=DAYS.map((d,i)=>`
+    <button class="day-tab ${i===activeDay?'active':''} ${Object.keys(schedule[i]).length?'has-sched':''}" onclick="setDay(${i})">
+      ${d.slice(0,3).toUpperCase()}
+      <div class="dot"></div>
+    </button>`).join('');
+}
+function setDay(i){activeDay=i;renderDayTabs();renderCalTimeline()}
+function renderCalTimeline(){
+  const c=document.getElementById('cal-timeline');
+  c.innerHTML=HOURS.map(h=>{
+    const mKey=schedule[activeDay][h];
+    const m=mKey?MODES[mKey]:null;
+    return`<div class="time-slot">
+      <div class="time-label">${fmt(h)}</div>
+      <div class="slot-bar ${m?'filled':''}" style="${m?`background:${m.color}22;border-color:${m.color}66`:''}" onclick="slotClick(${h})">
+        ${m?`<span class="slot-mode-label" style="color:${m.color}">${m.label}</span>`:'<span style="font-family:var(--fm);font-size:10px;color:rgba(255,255,255,0.15)">Click to assign</span>'}
+        ${m?`<button class="slot-del" onclick="event.stopPropagation();clearSlot(${h})">✕</button>`:''}
+      </div>
+    </div>`;
+  }).join('');
+}
+function slotClick(hour){
+  if(selectedPaletteMode!==undefined&&selectedPaletteMode!==null){
+    // paint mode directly
+    if(selectedPaletteMode===null){delete schedule[activeDay][hour];}
+    else{schedule[activeDay][hour]=selectedPaletteMode;}
+    renderCalTimeline();renderDayTabs();return;
+  }
+  // open picker
+  pendingSlot={dayIdx:activeDay,hour};
+  document.getElementById('sp-time').textContent=`${fmt(hour)} – ${fmt(hour+1)}`;
+  renderSlotPicker();
+  openOverlay('slot-picker');
+}
+function clearSlot(hour){delete schedule[activeDay][hour];renderCalTimeline();renderDayTabs()}
+function renderSlotPicker(){
+  document.getElementById('sp-mode-list').innerHTML=Object.entries(MODES).map(([k,m])=>`
+    <button class="mode-btn" onclick="assignSlot('${k}')">
+      <span class="mode-btn-icon">${m.tiles[0]?m.tiles[0].icon:'🔒'}</span>
+      <div>
+        <div class="mode-btn-name" style="color:${m.color}">${m.label}</div>
+        <div style="font-size:11px;color:var(--muted);font-family:var(--fm)">${m.tiles.length} tiles</div>
+      </div>
+    </button>`).join('');
+}
+function assignSlot(modeKey){
+  if(pendingSlot){schedule[pendingSlot.dayIdx][pendingSlot.hour]=modeKey;pendingSlot=null;}
+  closeOverlay('slot-picker');renderCalTimeline();renderDayTabs();
+}
+function renderModePalette(){
+  document.getElementById('mode-palette').innerHTML=Object.entries(MODES).map(([k,m])=>`
+    <div class="mode-palette-item ${selectedPaletteMode===k?'selected':''}" id="pal-${k}" onclick="selectPalette('${k}')">
+      <div class="palette-dot" style="background:${m.color}"></div>
+      <span class="palette-name">${m.label}</span>
+    </div>`).join('');
+}
+function selectPalette(modeKey){
+  selectedPaletteMode=modeKey;
+  document.querySelectorAll('.mode-palette-item').forEach(el=>el.classList.remove('selected'));
+  const target=modeKey?document.getElementById('pal-'+modeKey):document.getElementById('pal-clear');
+  if(target)target.classList.add('selected');
+  toast(modeKey?'🖌 Paint mode: '+MODES[modeKey].label:'🖌 Paint mode: Clear','t-i');
+}
+function renderCopyChecks(){
+  document.getElementById('copy-day-checks').innerHTML=DAYS.map((d,i)=>`
+    <label class="day-check"><input type="checkbox" id="copy-chk-${i}" ${i===activeDay?'checked disabled':''}>${d}</label>`).join('');
+}
+function applyToSelected(){
+  const src=schedule[activeDay];
+  DAYS.forEach((_,i)=>{
+    const chk=document.getElementById('copy-chk-'+i);
+    if(chk&&chk.checked&&i!==activeDay){schedule[i]={...src};}
+  });
+  toast('Schedule applied to selected days','t-s');
+  renderDayTabs();
+}
+function applyTemplate(type){
+  const src={};
+  if(type==='school'){
+    src[7]='locked';src[8]='locked';src[9]='learning';src[10]='learning';src[11]='learning';
+    src[12]='learning';src[13]='learning';src[14]='learning';src[15]='funtime';src[16]='funtime';
+    src[17]='learning';src[18]='learning';src[19]='watchtime';src[20]='watchtime';src[21]='locked';
+  }else{
+    src[8]='learning';src[9]='funtime';src[10]='funtime';src[11]='funtime';
+    src[12]='watchtime';src[13]='funtime';src[14]='funtime';src[15]='funtime';
+    src[16]='learning';src[17]='watchtime';src[18]='watchtime';src[19]='watchtime';src[20]='locked';
+  }
+  schedule[activeDay]={...src};
+  renderCalTimeline();renderDayTabs();
+  toast('Template applied to '+DAYS[activeDay],'t-s');
+}
+function saveSchedule(){
+  const total=schedule.reduce((a,d)=>a+Object.keys(d).length,0);
+  toast(`✓ Schedule saved — ${total} slots across week`,'t-s');
+  closeOverlay('cal-overlay');
+}
+
+/* ══════════════════════════════════════
+   MODE BUILDER
+══════════════════════════════════════ */
+function openBuilder(){
+  closeOverlay('parent-panel');
+  builderStep=0;builderEditKey=null;
+  builderData={name:'',icon:'📚',color:'#00c8ff',apps:[],urls:[]};
+  renderStep();openOverlay('mode-builder');
+}
+function renderPips(){
+  const c=document.getElementById('step-pips');c.innerHTML='';
+  for(let i=0;i<BUILDER_STEPS;i++){const p=document.createElement('div');p.className='pip';if(i<builderStep)p.classList.add('done');else if(i===builderStep)p.classList.add('active');c.appendChild(p);}
+}
+function renderStep(){
+  renderPips();
+  const titles=['STEP 1 — NAME YOUR MODE','STEP 2 — APPROVED APPS','STEP 3 — APPROVED WEBSITES'];
+  document.getElementById('builder-step-title').textContent=titles[builderStep];
+  document.getElementById('btn-back').style.display=builderStep===0?'none':'block';
+  document.getElementById('btn-next').textContent=builderStep===2?'✓ CREATE MODE':'NEXT STEP →';
+  const body=document.getElementById('builder-body');
+  if(builderStep===0) renderStep1(body);
+  else if(builderStep===1) renderStep2(body);
+  else renderStep3(body);
+}
+function renderStep1(body){
+  body.innerHTML=`
+    <div>
+      <div class="fl">MODE NAME <span class="hbtn" onclick="showTutorial('name')">?</span></div>
+      <input class="txt-in" id="b-name" placeholder='e.g. Homework Time' value="${builderData.name}" maxlength="24" oninput="builderData.name=this.value">
+    </div>
+    <div>
+      <div class="fl">ICON</div>
+      <div class="icon-pick">${MODE_ICONS.map(ic=>`<div class="io${builderData.icon===ic?' sel':''}" onclick="pickIcon(this,'${ic}')">${ic}</div>`).join('')}</div>
+    </div>
+    <div>
+      <div class="fl">COLOUR</div>
+      <div class="col-pick">${MODE_COLORS.map(c=>`<div class="co${builderData.color===c?' sel':''}" style="background:${c}" onclick="pickColor(this,'${c}')"></div>`).join('')}</div>
+    </div>
+    <div style="padding:11px 13px;border-radius:9px;background:rgba(0,200,255,0.04);border:1px solid var(--border)">
+      <div style="font-family:var(--fm);font-size:10px;color:var(--muted);margin-bottom:5px">PREVIEW</div>
+      <div style="display:flex;align-items:center;gap:12px">
+        <div id="prev-icon" style="font-size:30px">${builderData.icon}</div>
+        <div><div id="prev-name" style="font-family:var(--fd);font-size:13px;letter-spacing:2px">${builderData.name||'My New Mode'}</div>
+        <div id="prev-color" style="font-size:11px;font-family:var(--fm);color:${builderData.color}">${builderData.color}</div></div>
+      </div>
+    </div>`;
+}
+function renderStep2(body){
+  body.innerHTML=`
+    <div>
+      <div class="fl">INSTALLED APPS <span class="hbtn" onclick="showTutorial('apps')">?</span></div>
+      <div id="builder-app-picker"></div>
+    </div>
+    <div class="divider"></div>
+    <div>
+      <div class="fl" style="margin-top:2px">ADDED APPS <span style="color:var(--cyan)" id="builder-app-count">(${builderData.apps.length})</span></div>
+      <div id="app-list">${chips(builderData.apps,'app')}</div>
+    </div>`;
+  renderAppPicker('builder-app-picker', builderData.apps, (selected) => {
+    builderData.apps = selected;
+    const al = document.getElementById('app-list');
+    if(al) al.innerHTML = chips(builderData.apps,'app');
+    const countEl = document.getElementById('builder-app-count');
+    if(countEl) countEl.textContent = '('+builderData.apps.length+')';
+  });
+}
+function renderStep3(body){
+  body.innerHTML=`
+    <div>
+      <div class="fl">ADD A WEBSITE <span class="hbtn" onclick="showTutorial('urls')">?</span></div>
+      <div class="add-row">
+        <input class="txt-in" id="url-in" placeholder='e.g. khanacademy.org' onkeydown="if(event.key==='Enter')addURL()">
+        <button class="add-btn" onclick="addURL()">+ ADD</button>
+      </div>
+      <div class="quick-urls">${['khanacademy.org','youtube.com/kids','scratch.mit.edu','pbskids.org','coolmathgames.com'].map(u=>`<div class="qurl" onclick="quickURL('${u}')">${u}</div>`).join('')}</div>
+    </div>
+    <div>
+      <div class="fl" style="margin-top:2px">ADDED WEBSITES (${builderData.urls.length})</div>
+      <div id="url-list">${chips(builderData.urls,'url')}</div>
+    </div>
+    <div class="info-box">
+      <div class="info-box-title">HOW URL RULES WORK</div>
+      <div class="info-box-body"><b>Domain:</b> khanacademy.org — whole site<br><b>Exact URL:</b> youtube.com/watch?v=abc — one page only</div>
+    </div>`;
+}
+function chips(arr,type){
+  if(!arr.length)return`<div style="font-family:var(--fm);font-size:12px;color:var(--muted);padding:5px 0">None added yet</div>`;
+  return arr.map((item,i)=>`<div class="chip"><span style="font-size:17px">${type==='app'?(item.icon||'📦'):'🌐'}</span><span class="chip-lbl">${item.name||item}</span><button class="chip-del" onclick="removeBuilderItem('${type}',${i})">✕</button></div>`).join('');
+}
+function pickIcon(el,ic){builderData.icon=ic;document.querySelectorAll('.io').forEach(e=>e.classList.remove('sel'));el.classList.add('sel');const p=document.getElementById('prev-icon');if(p)p.textContent=ic}
+function pickColor(el,c){builderData.color=c;document.querySelectorAll('.co').forEach(e=>e.classList.remove('sel'));el.classList.add('sel');const p=document.getElementById('prev-color');if(p){p.textContent=c;p.style.color=c}}
+function togglePreset(i){const a=PRESET_APPS[i];const idx=builderData.apps.findIndex(x=>x.name===a.name);if(idx>=0)builderData.apps.splice(idx,1);else builderData.apps.push(a);document.getElementById('pr'+i)?.classList.toggle('added',idx<0);const al=document.getElementById('app-list');if(al)al.innerHTML=chips(builderData.apps,'app')}
+function addCustomApp(){const inp=document.getElementById('custom-app');const v=inp.value.trim();if(!v)return;if(builderData.apps.find(a=>a.name===v)){toast('Already added','t-w');return;}builderData.apps.push({icon:'📦',name:v});inp.value='';const al=document.getElementById('app-list');if(al)al.innerHTML=chips(builderData.apps,'app')}
+function addURL(){const inp=document.getElementById('url-in');let v=inp.value.trim().replace(/^https?:\/\//,'');if(!v)return;if(builderData.urls.includes(v)){toast('Already added','t-w');return;}builderData.urls.push(v);inp.value='';const ul=document.getElementById('url-list');if(ul)ul.innerHTML=chips(builderData.urls,'url')}
+function quickURL(u){if(builderData.urls.includes(u)){toast('Already added','t-w');return;}builderData.urls.push(u);const ul=document.getElementById('url-list');if(ul)ul.innerHTML=chips(builderData.urls,'url')}
+function removeBuilderItem(type,i){if(type==='app'){const r=builderData.apps[i];builderData.apps.splice(i,1);PRESET_APPS.forEach((a,pi)=>{if(a.name===r.name)document.getElementById('pr'+pi)?.classList.remove('added');});const al=document.getElementById('app-list');if(al)al.innerHTML=chips(builderData.apps,'app');}else{builderData.urls.splice(i,1);const ul=document.getElementById('url-list');if(ul)ul.innerHTML=chips(builderData.urls,'url');}}
+function builderNext(){
+  if(builderStep===0){const nm=(document.getElementById('b-name')?.value||builderData.name).trim();if(!nm){toast('Please enter a mode name','t-w');document.getElementById('b-name')?.focus();return;}builderData.name=nm;builderStep=1;renderStep();}
+  else if(builderStep===1){builderStep=2;renderStep();}
+  else{saveMode();}
+}
+function builderBack(){if(builderStep>0){builderStep--;renderStep();}}
+function saveMode(){
+  if(!builderData.name){toast('Mode needs a name','t-w');return;}
+  const k='custom_'+Date.now();
+  MODES[k]={label:builderData.name.toUpperCase(),tagline:'Custom: '+builderData.name,color:builderData.color,
+    tiles:builderData.apps.map(a=>({icon:a.icon||'📦',label:a.name,c:builderData.color}))};
+  closeOverlay('mode-builder');toast('✓ Mode "'+builderData.name+'" created!','t-s');
+  setTimeout(()=>{renderPanelModes();openOverlay('parent-panel');},400);
+}
+
+/* ══ TUTORIALS ══ */
+const TUTS={
+  name:{emoji:'🏷️',title:'NAMING YOUR MODE',body:'Give your mode a clear name your child will recognise — like "Homework Time", "Weekend Play", or "Reading Hour".',tip:'💡 Names that match your daily routine help kids know what to expect.'},
+  apps:{emoji:'📦',title:'APPROVED APPS',body:'Only apps on this list will open during this mode. Tap presets to quick-add, or type any installed app name.',tip:'💡 Start with 2–3 apps. You can always add more later!'},
+  urls:{emoji:'🌐',title:'APPROVED WEBSITES',body:'Add domains to allow a whole site, or an exact URL for just one page. Only these sites will open in this mode.',tip:'💡 "khanacademy.org" = whole site. Full URL = that page only.'},
+  tiles:{emoji:'🎮',title:'EDITING TILES',body:'Tiles are the buttons your child sees on their launcher screen. Add, remove, or rename any tile here. Changes take effect immediately.',tip:'💡 Hover over any tile on the launcher to see the quick-edit button.'},
+  calendar:{emoji:'📅',title:'MISSION SCHEDULE',body:'Set automatic mode changes throughout the day. Click a time slot to assign a mode. Use Paint Mode on the left to quickly fill multiple slots.',tip:'💡 Use "Apply to Days" to copy your schedule to weekdays or weekends at once.'},
+};
+function showTutorial(key){const t=TUTS[key];document.getElementById('tut-emoji').textContent=t.emoji;document.getElementById('tut-title').textContent=t.title;document.getElementById('tut-body').textContent=t.body;document.getElementById('tut-tip').textContent=t.tip;openOverlay('tutorial');}
+
+/* ══ TOAST ══ */
+function toast(msg,cls='t-i'){document.querySelectorAll('.toast').forEach(t=>t.remove());const t=document.createElement('div');t.className=`toast ${cls}`;t.textContent=msg;document.body.appendChild(t);setTimeout(()=>t.remove(),2400);}
+
+/* ══════════════════════════════════════════════════════════════════════════════
+   ELECTRON BRIDGE
+   window.labdesk injected by preload.js when running inside Electron.
+   Falls back to stubs so the HTML still works as a plain browser demo.
+══════════════════════════════════════════════════════════════════════════════*/
+const LD = window.labdesk || {
+  isElectron:false, loadData:async()=>null, saveData:async()=>true,
+  setMode:async()=>true, verifyPin:async(p)=>p.length>0, setPin:async()=>true,
+  launchApp:async(p)=>{toast('Would launch: '+p,'t-i');return{success:true};},
+  openUrl:async(u)=>{window.open('https://'+u.replace(/^https?:\/\//,''),'_blank');return{success:true};},
+  quit:async()=>{}, reload:async()=>location.reload(),
+  setKiosk:async()=>{}, setStartup:async()=>{},
+  platform:'browser', version:'1.0.0-demo'
+};
+
+let appPin='1234', appData=null;
+
+async function persistAll(){if(!LD.isElectron)return;await LD.saveData({currentMode,modes:MODES,schedule,pin:appPin,kioskMode:appData?.kioskMode||false});}
+async function persistMode(key){if(!LD.isElectron)return;await LD.setMode(key);}
+
+/* ── Real PIN gate ── */
+async function gateSubmit(){
+  const v=document.getElementById('gate-input').value.trim();
+  if(!v){document.getElementById('gate-input').classList.add('shake');return;}
+  const ok=await LD.verifyPin(v);
+  if(!ok){document.getElementById('gate-input').classList.add('shake');setTimeout(()=>document.getElementById('gate-input').classList.remove('shake'),400);toast('Incorrect PIN','t-w');return;}
+  closeOverlay('pin-gate');renderPanelModes();openOverlay('parent-panel');
+}
+
+/* ── Panel with system controls ── */
+function renderPanelModes(){
+  document.getElementById('panel-mode-list').innerHTML=Object.entries(MODES).map(([k,m])=>`
+    <div class="mode-row ${k===currentMode?'active':''}">
+      <div class="mode-row-icon" onclick="requestSwitch('${k}')" style="cursor:pointer">${m.tiles[0]?m.tiles[0].icon:'🔒'}</div>
+      <div class="mode-row-info" onclick="requestSwitch('${k}')" style="cursor:pointer">
+        <div class="mode-row-name">${m.label}</div>
+        <div class="mode-row-meta">${m.tiles.length} tiles</div>
+      </div>
+      ${k===currentMode?'<span class="mode-row-badge">ACTIVE</span>':''}
+      ${k!=='locked'?`<button class="mode-row-edit" onclick="event.stopPropagation();openTileEditorFromPanel('${k}')">✏ EDIT</button>`:''}
+      ${k!==currentMode?`<button class="mode-row-sw" onclick="event.stopPropagation();requestSwitch('${k}')">ACTIVATE</button>`:''}
+    </div>`).join('');
+  const old=document.getElementById('panel-sys-controls');if(old)old.remove();
+  const pb=document.querySelector('#parent-panel .sh-body');if(!pb)return;
+  const d=document.createElement('div');d.id='panel-sys-controls';
+  d.innerHTML=`
+    <div class="divider"></div>
+    <div><div class="sec-label">System</div>
+    <div style="display:flex;gap:8px;flex-wrap:wrap;margin-top:6px">
+      <button class="mode-row-sw" style="border-color:rgba(0,200,255,0.35);color:var(--cyan)" onclick="changePinFlow()">🔑 Change PIN</button>
+      <button class="mode-row-sw" style="border-color:rgba(176,96,255,0.35);color:var(--purple)" onclick="toggleKioskFlow()">🖥 Kiosk Mode</button>
+      <button class="mode-row-sw" style="border-color:rgba(0,255,136,0.35);color:var(--green)" onclick="toggleStartupFlow()">⚡ Auto-Start</button>
+      <button class="mode-row-sw" id="blocking-btn" style="border-color:rgba(255,184,0,0.35);color:var(--amber)" onclick="toggleBlocking()">${appData?.blockingEnabled!==false?'🛡 Blocking ON':'🛡 Blocking OFF'}</button>
+      <button class="mode-row-sw" style="border-color:rgba(0,200,255,0.35);color:var(--cyan)" onclick="manualCheckUpdate()">🔄 Check for Updates</button>
+      ${LD.isElectron?'<button class="mode-row-sw" style="border-color:rgba(255,61,90,0.35);color:var(--red)" onclick="quitApp()">✕ Exit BrightGate</button>':''}
+    </div></div>`;
+  pb.appendChild(d);
+}
+
+/* ── PIN change modal ── */
+function changePinFlow(){
+  closeOverlay('parent-panel');
+  const ov=document.createElement('div');
+  ov.id='pin-change-overlay';
+  ov.style.cssText='position:fixed;inset:0;z-index:200;display:flex;align-items:center;justify-content:center;background:rgba(0,0,0,0.82);backdrop-filter:blur(8px)';
+  ov.innerHTML=`<div style="background:linear-gradient(160deg,#0d1a2e,#070e1c);border:1px solid rgba(0,200,255,0.3);border-radius:18px;padding:36px 40px;width:340px;display:flex;flex-direction:column;align-items:center;gap:16px">
+    <div style="font-size:32px">🔑</div>
+    <div style="font-family:var(--fd);font-size:12px;letter-spacing:3px;color:var(--cyan)">CHANGE PIN</div>
+    <input id="pin-new" type="password" class="gate-input" placeholder="New PIN (min 3 chars)" maxlength="30" autocomplete="off" style="width:100%">
+    <input id="pin-confirm" type="password" class="gate-input" placeholder="Confirm new PIN" maxlength="30" autocomplete="off" style="width:100%" onkeydown="if(event.key==='Enter')savePinChange()">
+    <button class="btn-amber" style="width:100%;padding:12px;border-radius:10px;border:none;background:linear-gradient(135deg,#c48800,#ffb800);color:#040810;font-family:var(--fd);font-size:11px;font-weight:700;letter-spacing:2px;cursor:pointer" onclick="savePinChange()">SAVE NEW PIN</button>
+    <div style="font-size:13px;color:var(--muted);cursor:pointer;font-family:var(--fm)" onclick="document.getElementById('pin-change-overlay').remove();openOverlay('parent-panel');renderPanelModes()">✕ Cancel</div>
+  </div>`;
+  document.body.appendChild(ov);
+  setTimeout(()=>document.getElementById('pin-new')?.focus(),100);
+}
+async function savePinChange(){
+  const n=document.getElementById('pin-new')?.value.trim();
+  const c=document.getElementById('pin-confirm')?.value.trim();
+  if(!n||n.length<3){toast('PIN must be at least 3 characters','t-w');return;}
+  if(n!==c){toast('PINs do not match — try again','t-w');return;}
+  appPin=n;
+  await LD.setPin(n);
+  await persistAll();
+  document.getElementById('pin-change-overlay')?.remove();
+  toast('✓ PIN changed successfully','t-s');
+}
+
+/* ── Update banner ── */
+function showUpdateBanner(newVersion){
+  const existing=document.getElementById('update-banner');
+  if(existing)existing.remove();
+  const banner=document.createElement('div');
+  banner.id='update-banner';
+  banner.style.cssText='position:fixed;bottom:72px;left:50%;transform:translateX(-50%);z-index:300;display:flex;align-items:center;gap:14px;padding:12px 20px;border-radius:12px;background:linear-gradient(135deg,rgba(0,255,136,0.12),rgba(0,200,255,0.08));border:1px solid rgba(0,255,136,0.35);backdrop-filter:blur(8px);white-space:nowrap;animation:toastIn .3s ease';
+  banner.innerHTML=`
+    <span style="font-size:18px">🚀</span>
+    <div>
+      <div style="font-family:var(--fd);font-size:10px;letter-spacing:2px;color:var(--green)">UPDATE DOWNLOADED — v${newVersion}</div>
+      <div style="font-size:12px;color:var(--muted);font-family:var(--fm);margin-top:2px">Restart BrightGate to apply the update</div>
+    </div>
+    <button onclick="LD.reload()" style="padding:6px 14px;border-radius:20px;border:1px solid rgba(0,255,136,0.4);background:rgba(0,255,136,0.1);color:var(--green);font-family:var(--fd);font-size:9px;letter-spacing:2px;cursor:pointer">RESTART NOW</button>
+    <button onclick="document.getElementById('update-banner').remove()" style="width:22px;height:22px;border-radius:6px;border:1px solid var(--border);background:transparent;color:var(--muted);cursor:pointer;font-size:13px">✕</button>`;
+  document.body.appendChild(banner);
+}
+
+async function manualCheckUpdate(){
+  toast('Checking for updates…','t-i');
+  const result=await LD.checkUpdate();
+  if(result.updated) showUpdateBanner(result.version);
+  else toast('Already up to date','t-s');
+}
+
+async function toggleBlocking(){
+  if(!LD.isElectron){toast('Blocking only works in the installed app','t-w');return;}
+  const cur=appData?.blockingEnabled!==false;
+  await LD.setBlocking(!cur);
+  if(appData)appData.blockingEnabled=!cur;
+  const btn=document.getElementById('blocking-btn');
+  if(btn)btn.textContent=(!cur?'🛡 Blocking ON':'🛡 Blocking OFF');
+  toast((!cur?'🛡 App blocking enabled':'🛡 App blocking disabled'),'t-i');
+}
+
+async function toggleKioskFlow(){
+  if(!LD.isElectron){toast('Open the app via npm start to use kiosk mode','t-w');return;}
+  const cur=appData?.kioskMode||false;
+  await LD.setKiosk(!cur);
+  if(appData)appData.kioskMode=!cur;
+  toast((cur?'Kiosk mode disabled':'Kiosk mode enabled')+' — restart BrightGate to apply','t-i');
+}
+
+async function toggleStartupFlow(){
+  if(!LD.isElectron){toast('Only works in the installed app','t-w');return;}
+  await LD.setStartup(true);
+  toast('✓ BrightGate set to launch on Windows startup','t-s');
+}
+
+async function quitApp(){closeOverlay('parent-panel');await LD.quit();}
+
+/* ── Tile launcher with real app/URL support ── */
+function renderLauncher(mode){
+  const m=MODES[mode];
+  document.getElementById('mode-label-top').textContent=m.label+' MODE';
+  document.getElementById('mode-dot').style.cssText=`width:7px;height:7px;border-radius:50%;background:${m.color};animation:pulse 2s infinite`;
+  document.getElementById('mode-badge').style.borderColor=m.color+'55';
+  document.getElementById('mode-headline').textContent=m.tagline;
+  const g=document.getElementById('tiles-grid');g.innerHTML='';
+  m.tiles.forEach((t)=>{
+    const d=document.createElement('div');d.className='tile';
+    d.style.setProperty('--tile-c',t.c);d.style.setProperty('--tile-glow',t.c+'33');
+    d.innerHTML=`<div class="tile-pip"></div><div class="tile-edit-btn" title="Edit tiles" onclick="event.stopPropagation();openTileEditor('${mode}')">✏</div><div class="tile-icon">${t.icon}</div><div class="tile-label">${t.label}</div>`;
+    d.addEventListener('click',(e)=>{
+      if(e.target.classList.contains('tile-edit-btn'))return;
+      if(t.execPath)LD.launchApp(t.execPath).then(r=>{if(!r.success)toast('Could not launch '+t.label,'t-w');else toast('🚀 Launching '+t.label+'…','t-i');});
+      else if(t.url){const modeRules=(MODES[mode]?.urls||[]).concat([t.url]);LD.openUrl(t.url,t.label,modeRules).then(()=>toast('🌐 Opening '+t.label+'…','t-i'));}
+      else toast('🚀 '+t.label,'t-i');
+    });
+    g.appendChild(d);
+  });
+  if(!m.tiles.length&&mode!=='locked')g.innerHTML=`<div style="text-align:center;color:var(--muted);font-family:var(--fm);font-size:13px;padding:40px 20px">No tiles yet.<br><span style="color:var(--cyan);cursor:pointer" onclick="openTileEditor('${mode}')">+ Add tiles to this mode</span></div>`;
+}
+
+/* ── Persist on mode save / switch ── */
+const _origSaveMode=saveMode;
+function saveMode(){_origSaveMode();persistAll();}
+const _origFinishSwitch=finishSwitch;
+function finishSwitch(){_origFinishSwitch();persistMode(currentMode);}
+
+/* ══ INIT ══ */
+async function init(){
+  if(LD.isElectron){
+    try{
+      const saved=await LD.loadData();
+      if(saved){
+        appData=saved;
+        if(saved.modes)Object.assign(MODES,saved.modes);
+        if(saved.schedule&&saved.schedule.length===7)schedule.splice(0,7,...saved.schedule);
+        if(saved.currentMode&&MODES[saved.currentMode])currentMode=saved.currentMode;
+        if(saved.pin)appPin=saved.pin;
+      }
+    }catch(e){console.error('Load error:',e);}
+
+    // Listen for update notifications from main process
+    LD.onUpdate((newVersion) => {
+      showUpdateBanner(newVersion);
+    });
+
+    setInterval(persistAll,120000);
+  }
+  renderLauncher(currentMode);
+  showScreen(currentMode==='locked'?'locked':'launcher');
+}
+init();
+</script>
+</body>
+</html>
+
