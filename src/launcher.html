@@ -728,37 +728,60 @@ function requestSwitch(mode){
 }
 
 /* ══ COUNTDOWN ══ */
+let switchInProgress = false; // Guard against double-fire
+
 function startCountdown(s){
-  clearInterval(cdInterval);countdownSecs=s;const total=s,circ=427;
+  clearInterval(cdInterval);
+  cdInterval=null;
+  switchInProgress=false;
+  countdownSecs=s;
+  const total=s, circ=427;
   function upd(){
+    if(switchInProgress)return; // Already finishing — stop ticking
     const m=Math.floor(countdownSecs/60),sec=countdownSecs%60;
     const numEl=document.getElementById('cd-num');
     const arcEl=document.getElementById('cd-arc');
     if(numEl)numEl.textContent=m+':'+(sec<10?'0':'')+sec;
     if(arcEl)arcEl.style.strokeDashoffset=circ*(1-countdownSecs/total);
-    if(countdownSecs<=0){clearInterval(cdInterval);cdInterval=null;doFinishSwitch();return;}
+    if(countdownSecs<=0){
+      clearInterval(cdInterval);cdInterval=null;
+      doFinishSwitch();return;
+    }
     countdownSecs--;
   }
-  upd();cdInterval=setInterval(upd,1000);
+  upd();
+  cdInterval=setInterval(upd,1000);
 }
 function skipCountdown(){
-  clearInterval(cdInterval);cdInterval=null;
+  if(switchInProgress)return; // Prevent double-tap
+  clearInterval(cdInterval);
+  cdInterval=null;
   doFinishSwitch();
 }
 function doFinishSwitch(){
+  if(switchInProgress)return; // Guard against double-fire
+  switchInProgress=true;
   try{
     if(!pendingMode||!MODES[pendingMode]){
-      showScreen('launcher');toast('Mode no longer exists','t-w');return;
+      showScreen('launcher');
+      toast('Mode no longer exists — returning to launcher','t-w');
+      switchInProgress=false;
+      return;
     }
-    currentMode=pendingMode;pendingMode=null;
+    const target=pendingMode;
+    pendingMode=null;
+    currentMode=target;
     renderLauncher(currentMode);
     showScreen('launcher');
     toast('⚡ Mode: '+(MODES[currentMode]?.label||currentMode),'t-s');
     persistMode(currentMode);
   }catch(e){
     console.error('Switch error:',e);
-    pendingMode=null;showScreen('launcher');
+    pendingMode=null;
+    showScreen('launcher');
     toast('Mode switch error — please retry','t-w');
+  }finally{
+    switchInProgress=false;
   }
 }
 function finishSwitch(){doFinishSwitch();}
@@ -1106,55 +1129,69 @@ function saveMode(){
 }
 
 /* ── Delete mode (requires PIN re-entry) ── */
+// pendingDeleteKey stored here so onclick strings don't need to pass dynamic keys
+let pendingDeleteKey = null;
+
 function deleteModeFlow(modeKey){
   if(modeKey==='locked'){toast('Cannot delete the Locked mode','t-w');return;}
-  const modeName=MODES[modeKey]?.label||modeKey;
-  // Show PIN confirmation overlay
-  const ov=document.createElement('div');
-  ov.id='delete-mode-overlay';
-  ov.style.cssText='position:fixed;inset:0;z-index:300;display:flex;align-items:center;justify-content:center;background:rgba(0,0,0,0.88);backdrop-filter:blur(8px)';
-  ov.innerHTML=`
-    <div style="background:linear-gradient(160deg,#1a0808,#0d0404);border:1px solid rgba(255,61,90,0.4);border-radius:18px;padding:36px 40px;width:360px;display:flex;flex-direction:column;align-items:center;gap:16px">
+  if(!MODES[modeKey]){toast('Mode not found','t-w');return;}
+  pendingDeleteKey = modeKey;
+  const modeName = MODES[modeKey].label || modeKey;
+  const existing = document.getElementById('delete-mode-overlay');
+  if(existing) existing.remove();
+  const ov = document.createElement('div');
+  ov.id = 'delete-mode-overlay';
+  ov.style.cssText = 'position:fixed;inset:0;z-index:500;display:flex;align-items:center;justify-content:center;background:rgba(0,0,0,0.92);backdrop-filter:blur(10px)';
+  ov.innerHTML = `
+    <div style="background:linear-gradient(160deg,#1a0808,#0d0404);border:1px solid rgba(255,61,90,0.4);border-radius:18px;padding:36px 40px;width:360px;display:flex;flex-direction:column;align-items:center;gap:16px;position:relative;z-index:501">
       <div style="font-size:36px">🗑️</div>
       <div style="font-family:var(--fd);font-size:13px;letter-spacing:3px;color:var(--red);text-align:center">DELETE MODE</div>
       <div style="font-size:14px;color:var(--text);text-align:center;line-height:1.7">
-        You are about to permanently delete<br>
-        <span style="font-family:var(--fd);color:var(--red);letter-spacing:2px">${modeName}</span><br>
+        Permanently delete<br>
+        <span style="font-family:var(--fd);color:var(--red);letter-spacing:2px">${modeName}</span>?<br>
         <span style="color:var(--muted);font-size:13px">This cannot be undone. Enter your PIN to confirm.</span>
       </div>
       <input id="delete-pin-input" type="password" class="gate-input" placeholder="Enter parent PIN" maxlength="30" autocomplete="off"
         style="width:100%;border-color:rgba(255,61,90,0.4);background:rgba(255,61,90,0.06)"
-        onkeydown="if(event.key==='Enter')confirmDeleteMode('${modeKey}')">
-      <button onclick="confirmDeleteMode('${modeKey}')"
+        onkeydown="if(event.key==='Enter')confirmDeleteMode()">
+      <button onclick="confirmDeleteMode()"
         style="width:100%;padding:12px;border-radius:10px;border:none;background:linear-gradient(135deg,#8b0000,#ff3d5a);color:#fff;font-family:var(--fd);font-size:11px;font-weight:700;letter-spacing:2px;cursor:pointer">
-        DELETE MODE PERMANENTLY
+        DELETE PERMANENTLY
       </button>
       <div style="font-size:13px;color:var(--muted);cursor:pointer;font-family:var(--fm)"
-        onclick="document.getElementById('delete-mode-overlay').remove()">✕ Cancel</div>
+        onclick="document.getElementById('delete-mode-overlay').remove();pendingDeleteKey=null;">✕ Cancel</div>
     </div>`;
   document.body.appendChild(ov);
-  setTimeout(()=>document.getElementById('delete-pin-input')?.focus(),100);
+  setTimeout(()=>document.getElementById('delete-pin-input')?.focus(),150);
 }
 
-async function confirmDeleteMode(modeKey){
-  const pin=document.getElementById('delete-pin-input')?.value.trim();
+async function confirmDeleteMode(){
+  const modeKey = pendingDeleteKey;
+  if(!modeKey||!MODES[modeKey]){
+    document.getElementById('delete-mode-overlay')?.remove();
+    pendingDeleteKey=null;return;
+  }
+  const pin = document.getElementById('delete-pin-input')?.value.trim();
   if(!pin){toast('Enter your PIN to confirm','t-w');return;}
-  const ok=await LD.verifyPin(pin);
+  const ok = await LD.verifyPin(pin);
   if(!ok){
-    document.getElementById('delete-pin-input').classList.add('shake');
-    setTimeout(()=>document.getElementById('delete-pin-input').classList.remove('shake'),400);
+    const inp = document.getElementById('delete-pin-input');
+    if(inp){inp.classList.add('shake');setTimeout(()=>inp.classList.remove('shake'),400);}
     toast('Incorrect PIN','t-w');return;
   }
-  const modeName=MODES[modeKey]?.label||modeKey;
-  // If this is the current mode, switch to locked first
+  const modeName = MODES[modeKey]?.label||modeKey;
   if(currentMode===modeKey){
-    currentMode='locked';renderLauncher('locked');showScreen('locked');
+    currentMode='locked';
+    renderLauncher('locked');
+    showScreen('locked');
   }
   delete MODES[modeKey];
+  pendingDeleteKey = null;
   document.getElementById('delete-mode-overlay')?.remove();
+  // Close parent panel too so mode list refreshes on reopen
+  closeOverlay('parent-panel');
   await persistAll();
   toast('🗑️ Mode "'+modeName+'" deleted','t-w');
-  renderPanelModes();
 }
 
 /* ══ TUTORIALS ══ */

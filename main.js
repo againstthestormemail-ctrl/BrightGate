@@ -304,36 +304,47 @@ function createWindow() {
 
   mainWindow.once('ready-to-show', () => {
     mainWindow.show();
+    // Always block escape shortcuts — even outside kiosk mode
+    registerAlwaysBlockedShortcuts();
     if (appData.kioskMode) registerKioskShortcuts();
     if (appData.blockingEnabled) startMonitor();
 
-    // Check for updates in background — non-blocking
+    // Check for updates in background
     setTimeout(() => {
       checkAndUpdate(__dirname, (newVersion) => {
-        // Notify renderer to show update toast
         if (mainWindow && !mainWindow.isDestroyed()) {
           mainWindow.webContents.send('update:available', newVersion);
         }
       });
-    }, 3000); // Wait 3s after launch before checking
+    }, 3000);
   });
+
+  // Always refocus — prevents Alt+Tab from leaving the app
+  mainWindow.on('blur', () => {
+    setTimeout(() => {
+      if (mainWindow && !mainWindow.isDestroyed() && !mainWindow.webContents.isDevToolsFocused()) {
+        mainWindow.focus();
+      }
+    }, 100);
+  });
+
+  mainWindow.on('minimize', () => mainWindow.restore());
 
   mainWindow.webContents.on('will-navigate', (e, url) => {
     if (!url.startsWith('file://')) e.preventDefault();
   });
   mainWindow.webContents.setWindowOpenHandler(() => ({ action: 'deny' }));
   mainWindow.on('closed', () => { mainWindow = null; stopMonitor(); });
-
-  if (appData.kioskMode) {
-    mainWindow.on('minimize', () => mainWindow.restore());
-    mainWindow.on('blur', () => {
-      setTimeout(() => { if (mainWindow && !mainWindow.isDestroyed()) mainWindow.focus(); }, 150);
-    });
-  }
 }
 
 function registerKioskShortcuts() {
   ['Alt+F4','Super+D','Super+Tab','Super+L','Alt+Tab','CommandOrControl+Escape','Super']
+    .forEach(k => { try { globalShortcut.register(k, () => {}); } catch(e) {} });
+}
+
+// Always block these regardless of kiosk mode — prevents child escaping
+function registerAlwaysBlockedShortcuts() {
+  ['Alt+Tab','Super+D','Super+Tab','Super','CommandOrControl+Escape']
     .forEach(k => { try { globalShortcut.register(k, () => {}); } catch(e) {} });
 }
 
