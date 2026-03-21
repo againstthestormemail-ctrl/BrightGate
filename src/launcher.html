@@ -491,21 +491,7 @@ body{font-family:var(--fb);background:var(--space);color:var(--text);min-height:
 <script>
 /* ══ MODES DATA ══ */
 const MODES = {
-  learning:{label:'LEARNING',tagline:'Explore. Learn. Build.',color:'#00c8ff',tiles:[
-    {icon:'🧮',label:'Math Trainer',c:'#00c8ff'},{icon:'🌐',label:'Khan Academy',c:'#00c8ff'},
-    {icon:'📖',label:'Reading Lab',c:'#42d4f5'},{icon:'🔬',label:'Science Videos',c:'#42d4f5'},
-    {icon:'✏️',label:'Writing Tools',c:'#00c8ff'},{icon:'🗺️',label:'Geography Quiz',c:'#5cbcf5'},
-  ]},
-  funtime:{label:'FUN TIME',tagline:'Play. Create. Explore.',color:'#ff60b0',tiles:[
-    {icon:'🎮',label:'Minecraft',c:'#ff60b0'},{icon:'🎨',label:'Paint Studio',c:'#b060ff'},
-    {icon:'🎵',label:'Music Maker',c:'#ff60b0'},{icon:'🦖',label:'Dino Game',c:'#ff9040'},
-    {icon:'🧩',label:'Puzzle World',c:'#b060ff'},
-  ]},
-  watchtime:{label:'WATCH TIME',tagline:'Relax. Watch. Enjoy.',color:'#b060ff',tiles:[
-    {icon:'▶️',label:'YouTube Kids',c:'#b060ff'},{icon:'🎬',label:'Movie Club',c:'#b060ff'},
-    {icon:'🌿',label:'Nature Docs',c:'#6b42f5'},
-  ]},
-  locked:{label:'LOCKED',tagline:'',color:'#ff3d5a',tiles:[]}
+  locked:{label:'LOCKED',tagline:'',color:'#ff3d5a',tiles:[],apps:[],urls:[]}
 };
 
 /* schedule: array of 7 days, each = array of {hour, modeKey} */
@@ -513,7 +499,7 @@ const DAYS = ['Monday','Tuesday','Wednesday','Thursday','Friday','Saturday','Sun
 const HOURS = [6,7,8,9,10,11,12,13,14,15,16,17,18,19,20,21,22];
 let schedule = DAYS.map(()=>({})); // day index → {hour: modeKey}
 
-let currentMode='learning', pendingMode=null, countdownSecs=300, cdInterval=null;
+let currentMode='locked', pendingMode=null, countdownSecs=300, cdInterval=null;
 let editModeKey=null, selectedPaletteMode=null, activeDay=0;
 let pendingSlot=null; // {dayIdx, hour}
 let builderStep=0, builderEditKey=null;
@@ -749,7 +735,12 @@ let lockPin='';
 function handleLock(k){
   if(k==='⌫')lockPin=lockPin.slice(0,-1);else if(lockPin.length<4)lockPin+=k;
   for(let i=0;i<4;i++)document.getElementById('ld'+i).classList.toggle('on',i<lockPin.length);
-  if(lockPin.length===4){setTimeout(()=>{currentMode='learning';renderLauncher('learning');showScreen('launcher');lockPin='';for(let i=0;i<4;i++)document.getElementById('ld'+i).classList.remove('on');toast('🔓 Device unlocked','t-s');},180);}
+  if(lockPin.length===4){setTimeout(()=>{
+    const firstMode=Object.keys(MODES).find(k=>k!=='locked')||'locked';
+    currentMode=firstMode;renderLauncher(firstMode);showScreen('launcher');
+    lockPin='';for(let i=0;i<4;i++)document.getElementById('ld'+i).classList.remove('on');
+    toast('🔓 Device unlocked','t-s');
+  },180);}
 }
 
 /* ══════════════════════════════════════
@@ -1049,17 +1040,42 @@ function addURL(){const inp=document.getElementById('url-in');let v=inp.value.tr
 function quickURL(u){if(builderData.urls.includes(u)){toast('Already added','t-w');return;}builderData.urls.push(u);const ul=document.getElementById('url-list');if(ul)ul.innerHTML=chips(builderData.urls,'url')}
 function removeBuilderItem(type,i){if(type==='app'){const r=builderData.apps[i];builderData.apps.splice(i,1);PRESET_APPS.forEach((a,pi)=>{if(a.name===r.name)document.getElementById('pr'+pi)?.classList.remove('added');});const al=document.getElementById('app-list');if(al)al.innerHTML=chips(builderData.apps,'app');}else{builderData.urls.splice(i,1);const ul=document.getElementById('url-list');if(ul)ul.innerHTML=chips(builderData.urls,'url');}}
 function builderNext(){
-  if(builderStep===0){const nm=(document.getElementById('b-name')?.value||builderData.name).trim();if(!nm){toast('Please enter a mode name','t-w');document.getElementById('b-name')?.focus();return;}builderData.name=nm;builderStep=1;renderStep();}
+  if(builderStep===0){
+    const nm=(document.getElementById('b-name')?.value||builderData.name).trim();
+    if(!nm){toast('Please enter a mode name','t-w');document.getElementById('b-name')?.focus();return;}
+    builderData.name=nm;builderStep=1;renderStep();
+  }
   else if(builderStep===1){builderStep=2;renderStep();}
-  else{saveMode();}
+  else{saveMode();}  // Step 2 (URLs) — always allow proceeding, URLs are optional
 }
 function builderBack(){if(builderStep>0){builderStep--;renderStep();}}
 function saveMode(){
   if(!builderData.name){toast('Mode needs a name','t-w');return;}
   const k='custom_'+Date.now();
-  MODES[k]={label:builderData.name.toUpperCase(),tagline:'Custom: '+builderData.name,color:builderData.color,
-    tiles:builderData.apps.map(a=>({icon:a.icon||'📦',label:a.name,c:builderData.color}))};
-  closeOverlay('mode-builder');toast('✓ Mode "'+builderData.name+'" created!','t-s');
+  // Build tiles from selected apps (with real exe paths) + URL tiles
+  const appTiles = builderData.apps.map(a=>({
+    icon: a.icon || guessIcon(a.name),
+    label: a.name,
+    c: builderData.color,
+    execPath: a.exePath || null,
+    exeName: a.exeName || null
+  }));
+  const urlTiles = builderData.urls.map(u=>({
+    icon: '🌐',
+    label: u.replace(/^https?:\/\//,'').split('/')[0], // domain as label
+    c: builderData.color,
+    url: u
+  }));
+  MODES[k]={
+    label: builderData.name.toUpperCase(),
+    tagline: builderData.name,
+    color: builderData.color,
+    tiles: [...appTiles, ...urlTiles],
+    apps: builderData.apps,
+    urls: builderData.urls
+  };
+  closeOverlay('mode-builder');
+  toast('✓ Mode "'+builderData.name+'" created!','t-s');
   setTimeout(()=>{renderPanelModes();openOverlay('parent-panel');},400);
 }
 
@@ -1223,6 +1239,27 @@ function renderLauncher(mode){
   document.getElementById('mode-badge').style.borderColor=m.color+'55';
   document.getElementById('mode-headline').textContent=m.tagline;
   const g=document.getElementById('tiles-grid');g.innerHTML='';
+
+  // No modes created yet — show welcome prompt
+  const userModes=Object.keys(MODES).filter(k=>k!=='locked');
+  if(userModes.length===0){
+    document.getElementById('mode-headline').textContent='Welcome to BrightGate';
+    g.innerHTML=`
+      <div style="text-align:center;display:flex;flex-direction:column;align-items:center;gap:20px;padding:40px 20px;max-width:440px">
+        <div style="font-size:56px">🚀</div>
+        <div style="font-family:var(--fd);font-size:14px;letter-spacing:3px;color:var(--cyan)">NO MODES SET UP YET</div>
+        <div style="font-size:15px;color:var(--muted);line-height:1.7">Tap the <span style="color:var(--amber);font-weight:700">⚙ PARENT</span> button above to open Mission Control and create your first mode.</div>
+        <button onclick="openPinGate()" style="padding:12px 28px;border-radius:30px;border:1px solid var(--amber);background:rgba(255,184,0,0.1);color:var(--amber);font-family:var(--fd);font-size:11px;letter-spacing:2px;cursor:pointer">⚙ OPEN PARENT PANEL →</button>
+      </div>`;
+    return;
+  }
+
+  // If currentMode doesn't exist (e.g. after clearing defaults), switch to first available
+  if(!MODES[mode]){
+    mode=userModes[0];
+    currentMode=mode;
+  }
+
   m.tiles.forEach((t)=>{
     const d=document.createElement('div');d.className='tile';
     d.style.setProperty('--tile-c',t.c);d.style.setProperty('--tile-glow',t.c+'33');

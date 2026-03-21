@@ -1,6 +1,6 @@
 {
   "name": "brightgate",
-  "version": "1.3.0",
+  "version": "1.3.1",
   "description": "BrightGate \u2014 Kid-Safe Desktop Launcher",
   "main": "main.js",
   "scripts": {
@@ -48,6 +48,8 @@
       "main.js",
       "preload.js",
       "browser-preload.js",
+      "updater.js",
+      "version.json",
       "src/**/*",
       "assets/**/*",
       "node_modules/**/*"
