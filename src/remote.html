@@ -1,0 +1,492 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width,initial-scale=1,maximum-scale=1,user-scalable=no">
+<meta name="mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+<title>BrightGate Remote</title>
+<style>
+*{box-sizing:border-box;margin:0;padding:0;-webkit-tap-highlight-color:transparent}
+:root{
+  --bg:#04080f;--card:#0a1220;--border:rgba(0,200,255,0.15);
+  --cyan:#00c8ff;--green:#00ff88;--amber:#ffb800;--red:#ff3d5a;--purple:#b060ff;
+  --text:#d0e8ff;--muted:rgba(180,220,255,0.45);
+  --fd:'Orbitron',monospace;--fm:'Share Tech Mono',monospace;
+}
+html,body{height:100%;background:var(--bg);color:var(--text);font-family:var(--fm);overflow-x:hidden}
+body{display:flex;flex-direction:column;min-height:100vh}
+
+/* LOGIN */
+#login{flex:1;display:flex;flex-direction:column;align-items:center;justify-content:center;padding:32px;gap:20px}
+.logo{font-family:var(--fd);font-size:22px;letter-spacing:4px;color:var(--cyan)}
+.logo em{color:rgba(0,200,255,0.5);font-style:normal}
+.login-sub{font-size:12px;color:var(--muted);text-align:center;line-height:1.6;max-width:260px}
+.ip-row{display:flex;gap:8px;width:100%;max-width:320px}
+.inp{flex:1;padding:12px 14px;border-radius:10px;border:1px solid var(--border);background:rgba(0,200,255,0.04);color:var(--text);font-family:var(--fm);font-size:14px;outline:none;width:100%}
+.inp:focus{border-color:var(--cyan)}
+.inp.pin-inp{font-size:20px;letter-spacing:8px;text-align:center}
+.btn{padding:13px;border-radius:12px;border:none;font-family:var(--fd);font-size:11px;font-weight:700;letter-spacing:2px;cursor:pointer;transition:all .2s;width:100%;max-width:320px}
+.btn-primary{background:linear-gradient(135deg,#006090,var(--cyan));color:#040810}
+.btn-primary:active{opacity:.85}
+.btn-sm{padding:9px 14px;border-radius:10px;border:1px solid var(--border);background:transparent;color:var(--muted);font-family:var(--fm);font-size:11px;cursor:pointer;flex-shrink:0}
+.error{font-size:12px;color:var(--red);text-align:center;font-family:var(--fm);min-height:16px}
+
+/* APP */
+#app{flex:1;display:none;flex-direction:column;max-width:480px;margin:0 auto;width:100%}
+.topbar{padding:16px 20px 10px;display:flex;align-items:center;justify-content:space-between;border-bottom:1px solid var(--border)}
+.brand{font-family:var(--fd);font-size:11px;letter-spacing:3px;color:var(--cyan)}
+.dot{width:7px;height:7px;border-radius:50%;background:var(--green);animation:pulse 2s infinite;display:inline-block;margin-right:6px}
+@keyframes pulse{0%,100%{opacity:1}50%{opacity:.3}}
+.logout-btn{font-family:var(--fm);font-size:11px;color:var(--muted);cursor:pointer;padding:4px 8px;border-radius:6px;border:1px solid var(--border);background:transparent}
+
+.section{padding:16px 20px}
+.sec-label{font-family:var(--fd);font-size:9px;letter-spacing:3px;color:var(--muted);margin-bottom:10px}
+
+/* STATUS CARD */
+.status-card{background:var(--card);border-radius:14px;border:1px solid var(--border);padding:16px;display:flex;flex-direction:column;gap:10px}
+.status-row{display:flex;align-items:center;justify-content:space-between}
+.status-label{font-size:12px;color:var(--muted);font-family:var(--fm)}
+.status-val{font-size:13px;font-weight:700;font-family:var(--fd);letter-spacing:1px}
+.badge{padding:3px 10px;border-radius:12px;font-size:10px;font-family:var(--fd);letter-spacing:1px}
+.badge-on{background:rgba(0,255,136,0.12);border:1px solid rgba(0,255,136,0.3);color:var(--green)}
+.badge-off{background:rgba(255,61,90,0.10);border:1px solid rgba(255,61,90,0.25);color:var(--red)}
+
+/* USAGE BAR */
+.usage-wrap{margin-top:4px}
+.usage-track{height:4px;border-radius:2px;background:rgba(255,255,255,0.08);overflow:hidden}
+.usage-fill{height:100%;border-radius:2px;transition:width .5s}
+.usage-label{font-size:11px;color:var(--muted);font-family:var(--fm);margin-top:4px}
+
+/* MODE GRID */
+.mode-grid{display:grid;grid-template-columns:1fr 1fr;gap:10px}
+.mode-card{background:var(--card);border-radius:14px;border:2px solid transparent;padding:14px;cursor:pointer;transition:all .2s;display:flex;flex-direction:column;gap:6px;position:relative;overflow:hidden}
+.mode-card:active{opacity:.85;transform:scale(.97)}
+.mode-card.active-mode{border-color:currentColor}
+.mode-card.locked-mode{opacity:.7}
+.mode-icon{font-size:28px}
+.mode-name{font-family:var(--fd);font-size:10px;letter-spacing:2px}
+.mode-meta{font-size:10px;color:var(--muted);font-family:var(--fm)}
+.mode-active-badge{position:absolute;top:8px;right:8px;font-size:8px;font-family:var(--fd);letter-spacing:1px;padding:2px 7px;border-radius:8px;background:rgba(255,255,255,0.08)}
+.mode-usage{margin-top:4px}
+
+/* ACTION BUTTONS */
+.action-grid{display:grid;grid-template-columns:1fr 1fr;gap:10px}
+.action-btn{padding:14px;border-radius:12px;border:1px solid var(--border);background:var(--card);cursor:pointer;display:flex;flex-direction:column;align-items:center;gap:6px;transition:all .2s}
+.action-btn:active{opacity:.8;transform:scale(.97)}
+.action-icon{font-size:22px}
+.action-label{font-family:var(--fd);font-size:9px;letter-spacing:1px;color:var(--muted)}
+
+/* LOCK BUTTON */
+.lock-btn{margin:0 20px 20px;padding:15px;border-radius:14px;border:2px solid rgba(255,61,90,0.4);background:rgba(255,61,90,0.08);cursor:pointer;display:flex;align-items:center;justify-content:center;gap:10px;transition:all .2s}
+.lock-btn:active{background:rgba(255,61,90,0.18)}
+.lock-label{font-family:var(--fd);font-size:11px;letter-spacing:2px;color:var(--red)}
+
+/* LOADING */
+.loading{text-align:center;padding:40px;font-size:13px;color:var(--muted);font-family:var(--fm)}
+
+/* TOAST */
+.toast-wrap{position:fixed;bottom:24px;left:50%;transform:translateX(-50%);z-index:100;pointer-events:none}
+.toast-msg{background:rgba(10,18,32,0.95);border:1px solid var(--border);border-radius:20px;padding:9px 18px;font-size:12px;font-family:var(--fm);white-space:nowrap;animation:fadeIn .25s ease}
+@keyframes fadeIn{from{opacity:0;transform:translateY(6px)}to{opacity:1;transform:translateY(0)}}
+</style>
+<link href="https://fonts.googleapis.com/css2?family=Orbitron:wght@700&family=Share+Tech+Mono&display=swap" rel="stylesheet">
+</head>
+<body>
+
+<!-- LOGIN SCREEN -->
+<div id="login">
+  <div class="logo">BRIGHT<em>GATE</em></div>
+  <div style="font-size:28px">📱</div>
+  <div class="login-sub">Remote control for BrightGate.<br>Connect to the PC on your home WiFi.</div>
+
+  <div style="width:100%;max-width:320px;display:flex;flex-direction:column;gap:10px">
+    <div style="font-family:var(--fd);font-size:9px;letter-spacing:2px;color:var(--muted)">PC IP ADDRESS</div>
+    <div class="ip-row">
+      <input class="inp" id="ip-in" placeholder="192.168.x.x" value="" type="text" inputmode="decimal">
+      <button class="btn-sm" onclick="detectIP()">Auto</button>
+    </div>
+    <div style="font-family:var(--fd);font-size:9px;letter-spacing:2px;color:var(--muted);margin-top:4px">PARENT PIN</div>
+    <input class="inp pin-inp" id="pin-in" type="password" inputmode="numeric" maxlength="8" placeholder="••••" onkeydown="if(event.key==='Enter')connect()">
+    <button class="btn btn-primary" onclick="connect()">CONNECT →</button>
+    <div class="error" id="login-err"></div>
+  </div>
+
+  <div style="font-size:11px;color:var(--muted);font-family:var(--fm);text-align:center;line-height:1.8;margin-top:8px">
+    Open BrightGate on the child's PC first.<br>
+    PC and phone must be on the same WiFi network.<br>
+    Port: <strong style="color:var(--cyan)">7743</strong>
+  </div>
+</div>
+
+<!-- REMOTE APP -->
+<div id="app">
+  <div class="topbar">
+    <div class="brand"><span class="dot"></span>BRIGHTGATE REMOTE</div>
+    <button class="logout-btn" onclick="logout()">✕ Disconnect</button>
+  </div>
+
+  <div id="app-body" class="loading">Loading…</div>
+
+  <button class="lock-btn" onclick="lockNow()">
+    <span style="font-size:20px">🔒</span>
+    <span class="lock-label">LOCK NOW</span>
+  </button>
+</div>
+
+<div class="toast-wrap" id="toast-wrap"></div>
+
+<script>
+let BASE = '';
+let PIN = '';
+let pollTimer = null;
+let lastStatus = null;
+
+// ── Saved credentials ──
+function saveCredentials(ip, pin) {
+  try { localStorage.setItem('bg_ip', ip); localStorage.setItem('bg_pin', pin); } catch(e){}
+}
+function loadCredentials() {
+  try { return { ip: localStorage.getItem('bg_ip')||'', pin: localStorage.getItem('bg_pin')||'' }; } catch(e){ return {ip:'',pin:''}; }
+}
+
+// ── Connection ──
+async function detectIP() {
+  // Try common local addresses
+  const errEl = document.getElementById('login-err');
+  errEl.textContent = 'Scanning local network…';
+  const base = '192.168.1.';
+  for (let i = 1; i < 255; i++) {
+    const ip = base + i;
+    try {
+      const r = await fetch(`http://${ip}:7743/ping`, { signal: AbortSignal.timeout(400) });
+      if (r.ok) {
+        document.getElementById('ip-in').value = ip;
+        errEl.textContent = '✓ Found BrightGate at ' + ip;
+        return;
+      }
+    } catch(e) {}
+  }
+  errEl.textContent = 'Not found. Enter IP manually (check PC network settings).';
+}
+
+async function connect() {
+  const ip = document.getElementById('ip-in').value.trim();
+  const pin = document.getElementById('pin-in').value.trim();
+  const errEl = document.getElementById('login-err');
+  if (!ip) { errEl.textContent = 'Enter the PC IP address'; return; }
+  if (!pin) { errEl.textContent = 'Enter your parent PIN'; return; }
+  errEl.textContent = 'Connecting…';
+  BASE = `http://${ip}:7743`;
+  PIN = pin;
+  try {
+    const r = await api('GET', '/status');
+    saveCredentials(ip, pin);
+    showApp(r);
+  } catch(e) {
+    errEl.textContent = 'Could not connect. Check IP and that BrightGate is running.';
+    BASE = ''; PIN = '';
+  }
+}
+
+function logout() {
+  clearInterval(pollTimer);
+  if (sseSource) { sseSource.close(); sseSource = null; }
+  BASE = ''; PIN = '';
+  document.getElementById('app').style.display = 'none';
+  document.getElementById('login').style.display = 'flex';
+}
+
+// ── API ──
+async function api(method, url, body) {
+  const opts = {
+    method,
+    headers: { 'Content-Type': 'application/json', 'X-BrightGate-PIN': PIN },
+  };
+  if (body) opts.body = JSON.stringify(body);
+  const r = await fetch(BASE + url, opts);
+  if (!r.ok) throw new Error('HTTP ' + r.status);
+  return r.json();
+}
+
+// ── App display ──
+function showApp(status) {
+  document.getElementById('login').style.display = 'none';
+  document.getElementById('app').style.display = 'flex';
+  requestNotifPermission();
+  renderStatus(status);
+  clearInterval(pollTimer);
+  pollTimer = setInterval(async () => {
+    try { const s = await api('GET', '/status'); renderStatus(s); } catch(e) {}
+  }, 8000);
+
+  // Connect SSE for real-time push notifications
+  connectSSE();
+}
+
+function renderStatus(s) {
+  lastStatus = s;
+  const body = document.getElementById('app-body');
+
+  const usageHtml = Object.entries(s.timeLimits||{}).map(([k, limitMins]) => {
+    const usedSecs = (s.usageToday||{})[k] || 0;
+    const remaining = Math.max(0, limitMins*60 - usedSecs);
+    const pct = Math.min(100, Math.round(usedSecs/(limitMins*60)*100));
+    const color = pct >= 90 ? 'var(--red)' : pct >= 60 ? 'var(--amber)' : 'var(--green)';
+    const mode = (s.modes||[]).find(m=>m.key===k);
+    if (!mode) return '';
+    const remMins = Math.floor(remaining/60);
+    return `<div style="margin-top:6px"><div style="font-size:11px;color:var(--muted);font-family:var(--fm);margin-bottom:3px">${mode.label}: ${remMins}m left today</div><div class="usage-track"><div class="usage-fill" style="width:${pct}%;background:${color}"></div></div></div>`;
+  }).join('');
+
+  const modesHtml = (s.modes||[]).map(m => {
+    const isActive = m.key === s.currentMode;
+    const isLocked = m.key === 'locked';
+    const color = m.color || 'var(--cyan)';
+    const limitMins = (s.timeLimits||{})[m.key];
+    const usedSecs = (s.usageToday||{})[m.key] || 0;
+    const remMins = limitMins ? Math.max(0, Math.floor((limitMins*60 - usedSecs)/60)) : null;
+    const limitBadge = remMins !== null ? `<div class="mode-meta" style="margin-top:2px">${remMins}m left today</div>` : '';
+    return `
+      <div class="mode-card ${isActive?'active-mode':''} ${isLocked?'locked-mode':''}"
+        style="color:${color};border-color:${isActive?color:'transparent'}"
+        onclick="switchMode('${m.key}','${m.label}')">
+        ${isActive?`<div class="mode-active-badge" style="color:${color}">ACTIVE</div>`:''}
+        <div class="mode-icon">${isLocked?'🔒':'🎯'}</div>
+        <div class="mode-name" style="color:${color}">${m.label}</div>
+        <div class="mode-meta">${m.tileCount} tiles</div>
+        ${limitBadge}
+      </div>`;
+  }).join('');
+
+  body.innerHTML = `
+    <div class="section">
+      <div class="sec-label">STATUS</div>
+      <div class="status-card">
+        <div class="status-row">
+          <span class="status-label">Current mode</span>
+          <span class="status-val" style="color:var(--cyan)">${(s.modes||[]).find(m=>m.key===s.currentMode)?.label||s.currentMode}</span>
+        </div>
+        <div class="status-row">
+          <span class="status-label">Process blocking</span>
+          <span class="badge ${s.blocking?'badge-on':'badge-off'}">${s.blocking?'ON':'OFF'}</span>
+        </div>
+        ${usageHtml}
+      </div>
+    </div>
+
+    ${(s.children||[]).length > 1 ? `
+    <div class="section">
+      <div class="sec-label">CHILD PROFILE</div>
+      <div style="display:flex;gap:8px;flex-wrap:wrap">
+        ${(s.children||[]).map(c => `
+          <div onclick="switchChild('${c.id}','${c.name}')"
+            style="display:flex;align-items:center;gap:7px;padding:8px 14px;border-radius:20px;border:2px solid ${c.id===s.activeChild?.id?'var(--cyan)':'rgba(0,200,255,0.15)'};background:${c.id===s.activeChild?.id?'rgba(0,200,255,0.1)':'transparent'};cursor:pointer;transition:all .2s">
+            <span style="font-size:18px">${c.avatar||'🧒'}</span>
+            <span style="font-family:var(--fd);font-size:10px;letter-spacing:1px;color:${c.id===s.activeChild?.id?'var(--cyan)':'var(--muted)'}">${c.name}</span>
+          </div>`).join('')}
+      </div>
+    </div>` : ''}
+
+    <div class="section">
+      <div class="sec-label">SWITCH MODE</div>
+      <div class="mode-grid">${modesHtml}</div>
+    </div>
+
+    <div class="section">
+      <div class="sec-label">QUICK ACTIONS</div>
+      <div class="action-grid">
+        <div class="action-btn" onclick="toggleBlocking(${!s.blocking})">
+          <div class="action-icon">${s.blocking?'🛡':'🔓'}</div>
+          <div class="action-label">${s.blocking?'TURN OFF':'TURN ON'} BLOCKING</div>
+        </div>
+        <div class="action-btn" onclick="refreshStatus()">
+          <div class="action-icon">🔄</div>
+          <div class="action-label">REFRESH</div>
+        </div>
+        <div class="action-btn" onclick="viewActivity()">
+          <div class="action-icon">📋</div>
+          <div class="action-label">ACTIVITY LOG</div>
+        </div>
+        <div class="action-btn" onclick="setTimeLimitFlow()">
+          <div class="action-icon">⏱</div>
+          <div class="action-label">TIME LIMITS</div>
+        </div>
+      </div>
+    </div>`;
+}
+
+async function switchMode(key, label) {
+  if (!confirm(`Switch to ${label}?`)) return;
+  try {
+    await api('POST', '/mode', { mode: key });
+    toast('⚡ Switched to ' + label);
+    setTimeout(refreshStatus, 800);
+  } catch(e) { toast('❌ Failed to switch mode'); }
+}
+
+async function switchChild(childId, name) {
+  if (!confirm('Switch to ' + name + '?')) return;
+  try {
+    await api('POST', '/child/switch', { childId });
+    toast('👶 Switched to ' + name);
+    setTimeout(refreshStatus, 800);
+  } catch(e) { toast('❌ Failed to switch'); }
+}
+
+async function lockNow() {
+  if (!confirm('Lock the device now?')) return;
+  try {
+    await api('POST', '/lock');
+    toast('🔒 Device locked');
+    setTimeout(refreshStatus, 800);
+  } catch(e) { toast('❌ Failed to lock'); }
+}
+
+async function toggleBlocking(enabled) {
+  try {
+    await api('POST', '/blocking', { enabled });
+    toast(enabled ? '🛡 Blocking ON' : '🔓 Blocking OFF');
+    setTimeout(refreshStatus, 500);
+  } catch(e) { toast('❌ Failed'); }
+}
+
+async function refreshStatus() {
+  try { const s = await api('GET', '/status'); renderStatus(s); } catch(e) { toast('❌ Connection lost'); }
+}
+
+async function viewActivity() {
+  try {
+    const data = await api('GET', '/activity');
+    const log = data.log || [];
+    if (!log.length) { toast('No activity recorded yet'); return; }
+    const formatDur = s => s < 60 ? s+'s' : Math.floor(s/60)+'m '+s%60+'s';
+    const rows = log.slice(0,20).map(e =>
+      `<div style="padding:8px 0;border-bottom:1px solid rgba(0,200,255,0.08);font-size:12px">
+        <div style="color:var(--text)">${e.title||'Unknown'}</div>
+        <div style="color:var(--muted);font-size:10px">${e.date} · ${e.mode||''} · ${formatDur(e.durationSecs||0)}</div>
+      </div>`).join('');
+    showSheet('📋 Activity Log', rows);
+  } catch(e) { toast('❌ Failed to load activity'); }
+}
+
+async function setTimeLimitFlow() {
+  if (!lastStatus) return;
+  const modes = (lastStatus.modes||[]).filter(m=>m.key!=='locked');
+  if (!modes.length) { toast('No modes created yet'); return; }
+  const rows = modes.map(m => {
+    const cur = (lastStatus.timeLimits||{})[m.key] || '';
+    return `<div style="padding:8px 0;border-bottom:1px solid rgba(0,200,255,0.08)">
+      <div style="font-size:12px;margin-bottom:6px;color:var(--text)">${m.label}</div>
+      <div style="display:flex;align-items:center;gap:8px">
+        <input id="lmt-${m.key}" type="number" min="0" max="480" value="${cur}" placeholder="No limit"
+          style="flex:1;padding:8px;border-radius:8px;border:1px solid var(--border);background:rgba(0,200,255,0.04);color:var(--text);font-family:var(--fm);font-size:13px;outline:none">
+        <span style="font-size:11px;color:var(--muted)">min/day</span>
+        <button onclick="saveRemoteLimit('${m.key}')" style="padding:6px 12px;border-radius:8px;border:1px solid rgba(0,200,255,0.3);background:transparent;color:var(--cyan);font-family:var(--fm);font-size:11px;cursor:pointer">Save</button>
+      </div>
+    </div>`;
+  }).join('');
+  showSheet('⏱ Time Limits', rows);
+}
+
+async function saveRemoteLimit(modeKey) {
+  const inp = document.getElementById('lmt-'+modeKey);
+  const mins = parseInt(inp?.value)||0;
+  try {
+    await api('POST', '/timelimit', { mode: modeKey, minutes: mins });
+    toast(mins > 0 ? `✓ ${mins} min/day set` : '✓ Limit removed');
+    setTimeout(refreshStatus, 500);
+  } catch(e) { toast('❌ Failed to set limit'); }
+}
+
+// ── Bottom sheet ──
+function showSheet(title, content) {
+  document.getElementById('bg-sheet')?.remove();
+  const sheet = document.createElement('div');
+  sheet.id = 'bg-sheet';
+  sheet.style.cssText = 'position:fixed;inset:0;z-index:200;display:flex;flex-direction:column;justify-content:flex-end;background:rgba(0,0,0,0.7)';
+  sheet.innerHTML = `
+    <div style="background:var(--card);border-radius:20px 20px 0 0;padding:20px;max-height:70vh;display:flex;flex-direction:column;gap:0">
+      <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:14px">
+        <div style="font-family:var(--fd);font-size:11px;letter-spacing:2px;color:var(--cyan)">${title}</div>
+        <button onclick="document.getElementById('bg-sheet')?.remove()" style="padding:4px 10px;border-radius:8px;border:1px solid var(--border);background:transparent;color:var(--muted);font-family:var(--fm);font-size:11px;cursor:pointer">Close</button>
+      </div>
+      <div style="overflow-y:auto;flex:1">${content}</div>
+    </div>`;
+  sheet.onclick = e => { if(e.target===sheet) sheet.remove(); };
+  document.body.appendChild(sheet);
+}
+
+// ── SSE Push Notifications ──
+let sseSource = null;
+
+function connectSSE() {
+  if (sseSource) { sseSource.close(); sseSource = null; }
+  try {
+    sseSource = new EventSource(BASE + '/events?pin=' + encodeURIComponent(PIN), {
+      // Can't send headers with EventSource, PIN already validated at connect
+    });
+    sseSource.addEventListener('modeChanged', e => {
+      const d = JSON.parse(e.data);
+      showNotification('⚡ Mode switched', 'Now: ' + (d.label || d.mode));
+      setTimeout(refreshStatus, 500);
+    });
+    sseSource.addEventListener('timeLimitReached', e => {
+      const d = JSON.parse(e.data);
+      const name = d.child?.name || 'Child';
+      showNotification('⏰ Time limit reached', name + "'s screen time is up");
+      setTimeout(refreshStatus, 500);
+    });
+    sseSource.addEventListener('scheduledModeChange', e => {
+      const d = JSON.parse(e.data);
+      showNotification('📅 Scheduled switch', 'Now: ' + (d.label || d.mode));
+      setTimeout(refreshStatus, 500);
+    });
+    sseSource.onerror = () => {
+      sseSource.close(); sseSource = null;
+      // Reconnect after 10s
+      setTimeout(connectSSE, 10000);
+    };
+  } catch(e) {}
+}
+
+function showNotification(title, body) {
+  // Web notification if allowed
+  if (Notification.permission === 'granted') {
+    new Notification(title, { body, icon: '/favicon.ico' });
+  }
+  // Always show in-app toast
+  toast(title + ' — ' + body);
+}
+
+function requestNotifPermission() {
+  if ('Notification' in window && Notification.permission === 'default') {
+    Notification.requestPermission();
+  }
+}
+
+// ── Toast ──
+function toast(msg) {
+  const wrap = document.getElementById('toast-wrap');
+  const el = document.createElement('div');
+  el.className = 'toast-msg';
+  el.textContent = msg;
+  wrap.appendChild(el);
+  setTimeout(() => el.remove(), 2500);
+}
+
+// ── Startup ──
+window.addEventListener('load', () => {
+  const saved = loadCredentials();
+  if (saved.ip) document.getElementById('ip-in').value = saved.ip;
+  if (saved.pin) document.getElementById('pin-in').value = saved.pin;
+  // Auto-connect if both saved — show a "Reconnect" option instead of firing blindly
+  if (saved.ip && saved.pin) {
+    const errEl = document.getElementById('login-err');
+    errEl.innerHTML = `<span style="color:var(--cyan);cursor:pointer" onclick="connect()">↩ Reconnect to last session (${saved.ip})</span>`;
+  }
+});
+</script>
+</body>
+</html>

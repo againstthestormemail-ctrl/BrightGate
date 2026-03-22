@@ -296,6 +296,61 @@ body{font-family:var(--fb);background:var(--space);color:var(--text);min-height:
 .t-s{background:rgba(0,255,136,0.15);border:1px solid rgba(0,255,136,0.4);color:var(--green)}
 .t-i{background:rgba(0,200,255,0.12);border:1px solid rgba(0,200,255,0.35);color:var(--cyan)}
 .t-w{background:rgba(255,184,0,0.12);border:1px solid rgba(255,184,0,0.35);color:var(--amber)}
+
+/* ── EXIT GATE BAR ── */
+#exit-gate-bar{
+  position:fixed;top:0;left:0;right:0;z-index:1000;
+  height:52px;display:none;
+  align-items:center;justify-content:space-between;
+  padding:0 20px;
+  background:rgba(4,8,15,0.98);
+  border-bottom:2px solid rgba(255,61,90,0.5);
+  box-shadow:0 2px 20px rgba(255,61,90,0.2);
+}
+#exit-gate-bar.active{display:flex}
+#exit-gate-label{
+  display:flex;align-items:center;gap:12px;
+  font-family:var(--fd);font-size:11px;letter-spacing:2px;color:var(--muted);
+}
+#exit-gate-label span{color:var(--text);font-size:13px}
+#exit-gate-btn{
+  padding:9px 24px;border-radius:24px;
+  border:2px solid var(--red);background:rgba(255,61,90,0.12);
+  color:var(--red);cursor:pointer;
+  font-family:var(--fd);font-size:11px;font-weight:700;letter-spacing:2px;
+  transition:all .2s;
+}
+#exit-gate-btn:hover{background:rgba(255,61,90,0.28);box-shadow:0 0 16px rgba(255,61,90,0.4)}
+#exit-gate-btn:active{transform:scale(.97)}
+
+/* ── IN-WINDOW BROWSER PANEL ── */
+#browser-panel{
+  position:fixed;inset:0;top:52px;z-index:900;
+  display:none;flex-direction:column;
+  background:#04080f;
+}
+#browser-panel.active{display:flex}
+#browser-webview{flex:1;width:100%;border:none}
+
+/* ── APP RUNNING OVERLAY ── */
+#app-overlay{
+  position:fixed;inset:0;top:52px;z-index:900;
+  display:none;flex-direction:column;align-items:center;justify-content:center;
+  gap:20px;background:rgba(4,8,15,0.97);
+}
+#app-overlay.active{display:flex}
+#app-overlay-icon{font-size:72px;animation:appPulse 3s ease infinite}
+@keyframes appPulse{0%,100%{transform:scale(1)}50%{transform:scale(1.06)}}
+#app-overlay-name{font-family:var(--fd);font-size:22px;letter-spacing:4px;color:var(--cyan)}
+#app-overlay-hint{font-size:14px;color:var(--muted);font-family:var(--fm)}
+
+/* When session active — hide all normal launcher controls */
+body.session-active .top-bar,
+body.session-active .launcher-body,
+body.session-active .bottom-bar,
+body.session-active .hud,
+body.session-active .scan-line,
+body.session-active .nebula{display:none!important}
 </style>
 </head>
 <body>
@@ -305,6 +360,35 @@ body{font-family:var(--fb);background:var(--space);color:var(--text);min-height:
 <div class="nebula" style="width:500px;height:500px;bottom:-100px;right:-100px;background:rgba(80,0,160,0.07);animation-direction:alternate-reverse"></div>
 <div class="hud tl"></div><div class="hud tr"></div><div class="hud bl"></div><div class="hud br"></div>
 <div class="scan-line"></div>
+
+<!-- EXIT GATE BAR — always on top when a session is active -->
+<div id="exit-gate-bar">
+  <div id="exit-gate-label">
+    <span id="exit-gate-icon">🚀</span>
+    <div>
+      <div style="font-family:var(--fd);font-size:10px;letter-spacing:2px;color:var(--muted)">NOW RUNNING</div>
+      <div id="exit-gate-title" style="font-family:var(--fd);font-size:13px;letter-spacing:2px;color:var(--text)">App Name</div>
+    </div>
+  </div>
+  <button id="exit-gate-btn" onclick="exitSession()">✕ EXIT GATE — RETURN TO BRIGHTGATE</button>
+</div>
+
+<!-- IN-WINDOW BROWSER PANEL -->
+<div id="browser-panel">
+  <webview id="browser-webview"
+    src="about:blank"
+    partition="persist:brightgate"
+    useragent="Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/124.0.0.0 Safari/537.36"
+    allowpopups="false">
+  </webview>
+</div>
+
+<!-- APP RUNNING OVERLAY -->
+<div id="app-overlay">
+  <div id="app-overlay-icon">🚀</div>
+  <div id="app-overlay-name">App Name</div>
+  <div id="app-overlay-hint">Running on this computer</div>
+</div>
 
 <!-- LAUNCHER -->
 <div class="screen" id="launcher">
@@ -503,7 +587,7 @@ let currentMode='locked', pendingMode=null, countdownSecs=300, cdInterval=null;
 let editModeKey=null, selectedPaletteMode=null, activeDay=0;
 let pendingSlot=null; // {dayIdx, hour}
 let builderStep=0, builderEditKey=null;
-let builderData={name:'',icon:'📚',color:'#00c8ff',apps:[],urls:[],urlConfigs:[]};
+let builderData={name:'',icon:'🎯',color:'#00c8ff',apps:[],urls:[],urlConfigs:[]};
 const BUILDER_STEPS=3;
 
 // Scanned apps cache — populated on first open of app picker
@@ -653,7 +737,7 @@ function toggleAppItemFiltered(filteredIdx, containerId, filter) {
   const realIdx = cb.apps.indexOf(app);
   toggleAppItem(realIdx, containerId);
 }
-const MODE_ICONS=['📚','🎮','🎨','🔬','✏️','▶️','🎵','🏆','🧪','🚀','🌍','💡'];
+const MODE_ICONS=['🎯','📚','🎮','🎨','🔬','✏️','▶️','🎵','🏆','🧪','🚀','🌍','💡','⚽','🏕️','🎭','🎲','🐉','🦁','🌈','🎸','🎹','🎬','🧩','💻','🏃','🍕','🌺','🔭','🎃'];
 const MODE_COLORS=['#00c8ff','#ff60b0','#b060ff','#00ff88','#ffb800','#ff6040','#40ff80','#60b0ff'];
 
 /* ══ STARS ══ */
@@ -663,52 +747,100 @@ const MODE_COLORS=['#00c8ff','#ff60b0','#b060ff','#00ff88','#ffb800','#ff6040','
 function tick(){const n=new Date();document.getElementById('clock').textContent=n.getHours().toString().padStart(2,'0')+':'+n.getMinutes().toString().padStart(2,'0')}
 tick();setInterval(tick,10000);
 
-/* ══ LAUNCHER ══ */
-function renderLauncher(mode){
-  const m=MODES[mode];
-  document.getElementById('mode-label-top').textContent=m.label+' MODE';
-  document.getElementById('mode-dot').style.cssText=`width:7px;height:7px;border-radius:50%;background:${m.color};animation:pulse 2s infinite`;
-  document.getElementById('mode-badge').style.borderColor=m.color+'55';
-  document.getElementById('mode-headline').textContent=m.tagline;
-  const g=document.getElementById('tiles-grid');g.innerHTML='';
-  m.tiles.forEach((t,i)=>{
-    const d=document.createElement('div');d.className='tile';
-    d.style.setProperty('--tile-c',t.c);d.style.setProperty('--tile-glow',t.c+'33');
-    d.innerHTML=`<div class="tile-pip"></div><div class="tile-edit-btn" title="Edit tiles" onclick="event.stopPropagation();openTileEditor('${mode}')">✏</div><div class="tile-icon">${t.icon}</div><div class="tile-label">${t.label}</div>`;
-    d.addEventListener('click',()=>toast('🚀 Launching '+t.label+'…','t-i'));
-    g.appendChild(d);
-  });
-  if(!m.tiles.length&&mode!=='locked'){
-    g.innerHTML=`<div style="text-align:center;color:var(--muted);font-family:var(--fm);font-size:13px;padding:40px 20px">No tiles yet.<br><span style="color:var(--cyan);cursor:pointer" onclick="openTileEditor('${mode}')">+ Add tiles to this mode</span></div>`;
-  }
-}
+/* ══ LAUNCHER — renderLauncher defined below in Electron bridge section ══ */
 
 /* ══ SCREENS ══ */
 function showScreen(id){['launcher','locked','countdown'].forEach(s=>document.getElementById(s).classList.toggle('hidden',s!==id))}
 
 /* ══ OVERLAYS ══ */
-function openOverlay(id){document.getElementById(id).classList.add('open')}
-function closeOverlay(id){document.getElementById(id).classList.remove('open')}
+function openOverlay(id){
+  document.getElementById(id)?.classList.add('open');
+  // Tell main process parent UI is open — suppress blur refocus
+  if(id==='parent-panel'||id==='pin-gate')LD.setParentOpen&&LD.setParentOpen(true);
+}
+function closeOverlay(id){
+  document.getElementById(id)?.classList.remove('open');
+  // Check if any parent UI is still open
+  const anyOpen=['parent-panel','pin-gate','tile-editor','mode-builder','tutorial','schedule-overlay']
+    .some(x=>document.getElementById(x)?.classList.contains('open'));
+  if(!anyOpen)LD.setParentOpen&&LD.setParentOpen(false);
+}
 
 /* ══ PIN GATE ══ */
-function openPinGate(){document.getElementById('gate-input').value='';openOverlay('pin-gate');setTimeout(()=>document.getElementById('gate-input').focus(),200)}
-function gateSubmit(){const v=document.getElementById('gate-input').value.trim();if(!v){document.getElementById('gate-input').classList.add('shake');return;}closeOverlay('pin-gate');renderPanelModes();openOverlay('parent-panel')}
+let pinAttempts = 0;
+let pinLockoutUntil = 0; // timestamp ms
+
+function openPinGate(){
+  const now = Date.now();
+  if(pinLockoutUntil > now){
+    const secsLeft = Math.ceil((pinLockoutUntil - now) / 1000);
+    toast('Too many attempts — wait '+secsLeft+'s','t-w');
+    return;
+  }
+  document.getElementById('gate-input').value='';
+  openOverlay('pin-gate');
+  updatePinLockoutUI();
+  setTimeout(()=>document.getElementById('gate-input')?.focus(),200);
+}
+
+function updatePinLockoutUI(){
+  const now = Date.now();
+  if(pinLockoutUntil <= now){ pinAttempts=0; return; }
+  const secsLeft = Math.ceil((pinLockoutUntil - now)/1000);
+  const inp = document.getElementById('gate-input');
+  const btn = document.querySelector('[onclick="gateSubmit()"]');
+  if(inp){ inp.disabled=true; inp.placeholder='Locked — '+secsLeft+'s remaining'; }
+  if(btn) btn.disabled=true;
+  // Countdown update
+  const t = setInterval(()=>{
+    const s = Math.ceil((pinLockoutUntil - Date.now())/1000);
+    if(s <= 0){
+      clearInterval(t);
+      const i2=document.getElementById('gate-input');
+      const b2=document.querySelector('[onclick="gateSubmit()"]');
+      if(i2){i2.disabled=false;i2.placeholder='••••••';i2.focus();}
+      if(b2) b2.disabled=false;
+      pinAttempts=0;
+    } else {
+      const i2=document.getElementById('gate-input');
+      if(i2) i2.placeholder='Locked — '+s+'s remaining';
+    }
+  }, 1000);
+}
+
+async function gateSubmit(){
+  const now = Date.now();
+  if(pinLockoutUntil > now){
+    toast('Too many attempts — locked out','t-w'); return;
+  }
+  const v=document.getElementById('gate-input').value.trim();
+  if(!v){
+    document.getElementById('gate-input').classList.add('shake');
+    setTimeout(()=>document.getElementById('gate-input')?.classList.remove('shake'),400);
+    return;
+  }
+  const ok = LD.isElectron ? await LD.verifyPin(v) : (v===appPin);
+  if(!ok){
+    pinAttempts++;
+    document.getElementById('gate-input').classList.add('shake');
+    setTimeout(()=>document.getElementById('gate-input')?.classList.remove('shake'),400);
+    document.getElementById('gate-input').value='';
+    if(pinAttempts >= 5){
+      pinLockoutUntil = Date.now() + 10 * 60 * 1000; // 10 minutes
+      closeOverlay('pin-gate');
+      toast('5 wrong attempts — locked for 10 minutes','t-w');
+    } else {
+      toast('Incorrect PIN — '+(5-pinAttempts)+' attempts left','t-w');
+    }
+    return;
+  }
+  pinAttempts = 0;
+  pinLockoutUntil = 0;
+  closeOverlay('pin-gate');renderPanelModes();openOverlay('parent-panel');
+}
 
 /* ══ PARENT PANEL ══ */
-function renderPanelModes(){
-  document.getElementById('panel-mode-list').innerHTML=Object.entries(MODES).map(([k,m])=>`
-    <div class="mode-row ${k===currentMode?'active':''}">
-      <div class="mode-row-icon" onclick="requestSwitch('${k}')" style="cursor:pointer">${m.tiles[0]?m.tiles[0].icon:'🔒'}</div>
-      <div class="mode-row-info" onclick="requestSwitch('${k}')" style="cursor:pointer">
-        <div class="mode-row-name">${m.label}</div>
-        <div class="mode-row-meta">${m.tiles.length} tiles</div>
-      </div>
-      ${k===currentMode?'<span class="mode-row-badge">ACTIVE</span>':''}
-      ${k!=='locked'?`<button class="mode-row-edit" onclick="event.stopPropagation();openTileEditorFromPanel('${k}')">✏ EDIT</button>`:''}
-      ${k!=='locked'?`<button class="mode-row-sw" style="border-color:rgba(255,61,90,0.3);color:var(--red)" onclick="event.stopPropagation();deleteModeFlow('${k}')">🗑</button>`:''}
-      ${k!==currentMode?`<button class="mode-row-sw" onclick="event.stopPropagation();requestSwitch('${k}')">ACTIVATE</button>`:''}
-    </div>`).join('');
-}
+// renderPanelModes defined below — includes system controls
 function openTileEditorFromPanel(k){closeOverlay('parent-panel');openTileEditor(k)}
 function requestSwitch(mode){
   closeOverlay('parent-panel');
@@ -758,23 +890,26 @@ function skipCountdown(){
   cdInterval=null;
   doFinishSwitch();
 }
-function doFinishSwitch(){
-  if(switchInProgress)return; // Guard against double-fire
+function doFinishSwitch(overrideMode){
+  if(switchInProgress)return;
   switchInProgress=true;
   try{
-    if(!pendingMode||!MODES[pendingMode]){
+    const target=overrideMode||pendingMode;
+    if(!target||!MODES[target]){
       showScreen('launcher');
       toast('Mode no longer exists — returning to launcher','t-w');
       switchInProgress=false;
       return;
     }
-    const target=pendingMode;
     pendingMode=null;
     currentMode=target;
+    // Exit any active session if mode changes underneath it
+    if(activeSession)exitSession();
     renderLauncher(currentMode);
-    showScreen('launcher');
+    showScreen(currentMode==='locked'?'locked':'launcher');
     toast('⚡ Mode: '+(MODES[currentMode]?.label||currentMode),'t-s');
     persistMode(currentMode);
+    updateUsageDisplay();
   }catch(e){
     console.error('Switch error:',e);
     pendingMode=null;
@@ -899,18 +1034,13 @@ function renderTileCards(tiles){
     </div>`).join('')}</div>`;
 }
 function toggleTilePreset(i){
-  const a=PRESET_APPS[i];const m=MODES[editModeKey];
-  const idx=m.tiles.findIndex(t=>t.label===a.name);
-  if(idx>=0){m.tiles.splice(idx,1);}
-  else{m.tiles.push({icon:a.icon,label:a.name,c:m.color});}
-  document.getElementById('tep'+i)?.classList.toggle('added',idx<0);
-  document.getElementById('te-tile-list').innerHTML=renderTileCards(m.tiles);
-  if(currentMode===editModeKey)renderLauncher(currentMode);
+  // toggleTilePreset removed — PRESET_APPS no longer used
 }
 function addCustomTile(){
   const icon=document.getElementById('te-icon-in')?.value.trim()||'📦';
   const name=document.getElementById('te-name-in')?.value.trim();
-  if(!name){toast('Enter a tile name','t-w');return;}
+  if(!name||!name.trim()){toast('Enter a tile name','t-w');return;}
+  if(name.trim().length<2){toast('Tile name too short','t-w');return;}
   MODES[editModeKey].tiles.push({icon,label:name,c:MODES[editModeKey].color});
   const te_icon=document.getElementById('te-icon-in');
   const te_name=document.getElementById('te-name-in');
@@ -1298,10 +1428,7 @@ function chips(arr,type){
 }
 function pickIcon(el,ic){builderData.icon=ic;document.querySelectorAll('.io').forEach(e=>e.classList.remove('sel'));el.classList.add('sel');const p=document.getElementById('prev-icon');if(p)p.textContent=ic}
 function pickColor(el,c){builderData.color=c;document.querySelectorAll('.co').forEach(e=>e.classList.remove('sel'));el.classList.add('sel');const p=document.getElementById('prev-color');if(p){p.textContent=c;p.style.color=c}}
-function togglePreset(i){const a=PRESET_APPS[i];const idx=builderData.apps.findIndex(x=>x.name===a.name);if(idx>=0)builderData.apps.splice(idx,1);else builderData.apps.push(a);document.getElementById('pr'+i)?.classList.toggle('added',idx<0);const al=document.getElementById('app-list');if(al)al.innerHTML=chips(builderData.apps,'app')}
-function addCustomApp(){const inp=document.getElementById('custom-app');const v=inp.value.trim();if(!v)return;if(builderData.apps.find(a=>a.name===v)){toast('Already added','t-w');return;}builderData.apps.push({icon:'📦',name:v});inp.value='';const al=document.getElementById('app-list');if(al)al.innerHTML=chips(builderData.apps,'app')}
-function addURL(){const inp=document.getElementById('url-in');let v=inp.value.trim().replace(/^https?:\/\//,'');if(!v)return;if(builderData.urls.includes(v)){toast('Already added','t-w');return;}builderData.urls.push(v);inp.value='';const ul=document.getElementById('url-list');if(ul)ul.innerHTML=chips(builderData.urls,'url')}
-function quickURL(u){if(builderData.urls.includes(u)){toast('Already added','t-w');return;}builderData.urls.push(u);const ul=document.getElementById('url-list');if(ul)ul.innerHTML=chips(builderData.urls,'url')}
+// togglePreset / addCustomApp / addURL / quickURL — removed (superseded by new URL config system)
 function removeBuilderItem(type,i){if(type==='app'){builderData.apps.splice(i,1);const al=document.getElementById('app-list');if(al)al.innerHTML=chips(builderData.apps,'app');}else{if(builderData.urlConfigs)builderData.urlConfigs.splice(i,1);builderData.urls.splice(i,1);const ul=document.getElementById('url-list');if(ul)ul.innerHTML=renderUrlConfigChips(builderData.urlConfigs||[]);}}
 function builderNext(){
   if(builderStep===0){
@@ -1328,7 +1455,8 @@ function saveMode(){
   }));
   MODES[k]={
     label:builderData.name.toUpperCase(), tagline:builderData.name,
-    color:builderData.color, tiles:[...appTiles,...urlTiles],
+    color:builderData.color, icon:builderData.icon||'🎯',
+    tiles:[...appTiles,...urlTiles],
     apps:builderData.apps, urlConfigs
   };
   closeOverlay('mode-builder');
@@ -1435,6 +1563,36 @@ const LD = window.labdesk || {
   isElectron:false, loadData:async()=>null, saveData:async()=>true,
   setMode:async()=>true, verifyPin:async(p)=>p.length>0, setPin:async()=>true,
   launchApp:async(p)=>{toast('Would launch: '+p,'t-i');return{success:true};},
+  killApp:async(p)=>{return{success:true};},
+  setSessionActive:async(p)=>{},
+  setParentOpen:async(open)=>{},
+  onScheduleChange:(cb)=>{},
+  logActivity:async(e)=>{},
+  loadScanCache:async()=>null,
+  checkScheduleNow:async()=>{},
+  startAppWatch:async()=>{},
+  stopAppWatch:async()=>{},
+  onAppClosed:(cb)=>{},
+  tickUsage:async()=>({limitReached:false}),
+  getUsage:async()=>({today:{},limits:{},date:null}),
+  setTimeLimit:async()=>{},
+  onUsageReset:(cb)=>{},
+  onLimitReached:(cb)=>{},
+  onRemoteMode:(cb)=>{},
+  onRemoteBlocking:(cb)=>{},
+  onRemoteLimits:(cb)=>{},
+  onScheduleWarning:(cb)=>{},
+  getLocalIP:async()=>'192.168.1.x',
+  listChildren:async()=>[],
+  addChild:async()=>null,
+  removeChild:async()=>({}),
+  setActiveChild:async()=>({}),
+  updateChild:async()=>({}),
+  pushNotify:async()=>{},
+  onChildSwitched:(cb)=>{},
+  onEmergencyPin:(cb)=>{},
+  emailRemoteLink:async()=>({url:'http://192.168.1.x:7743'}),
+  saveScanCache:async(r)=>{},
   openUrl:async(u)=>{window.open('https://'+u.replace(/^https?:\/\//,''),'_blank');return{success:true};},
   quit:async()=>{}, reload:async()=>location.reload(),
   setKiosk:async()=>{}, setStartup:async()=>{},
@@ -1443,23 +1601,318 @@ const LD = window.labdesk || {
 
 let appPin='1234', appData=null;
 
-async function persistAll(){if(!LD.isElectron)return;await LD.saveData({currentMode,modes:MODES,schedule,pin:appPin,kioskMode:appData?.kioskMode||false});}
-async function persistMode(key){if(!LD.isElectron)return;await LD.setMode(key);}
+/* ══════════════════════════════════════════════════════════════════════════
+   USAGE TRACKING & TIME LIMITS
+══════════════════════════════════════════════════════════════════════════ */
+let usageToday = {};   // { modeKey: secondsUsed }
+let timeLimits = {};   // { modeKey: minutesAllowed }
 
-/* ── Real PIN gate ── */
-async function gateSubmit(){
-  const v=document.getElementById('gate-input').value.trim();
-  if(!v){document.getElementById('gate-input').classList.add('shake');return;}
-  const ok=await LD.verifyPin(v);
-  if(!ok){document.getElementById('gate-input').classList.add('shake');setTimeout(()=>document.getElementById('gate-input').classList.remove('shake'),400);toast('Incorrect PIN','t-w');return;}
-  closeOverlay('pin-gate');renderPanelModes();openOverlay('parent-panel');
+function getUsageRemaining(modeKey) {
+  const limitMins = timeLimits[modeKey];
+  if (!limitMins) return null; // No limit set
+  const usedSecs = usageToday[modeKey] || 0;
+  return Math.max(0, limitMins * 60 - usedSecs);
 }
+
+function formatTime(secs) {
+  if (secs === null) return null;
+  const h = Math.floor(secs / 3600);
+  const m = Math.floor((secs % 3600) / 60);
+  const s = secs % 60;
+  if (h > 0) return `${h}h ${m}m`;
+  if (m > 0) return `${m}m`;
+  return `${s}s`;
+}
+
+function updateUsageDisplay() {
+  // Update usage bar on launcher if a mode with a limit is active
+  const remaining = getUsageRemaining(currentMode);
+  const existing = document.getElementById('usage-bar');
+  if (remaining === null) { if (existing) existing.remove(); return; }
+  const limitSecs = (timeLimits[currentMode] || 0) * 60;
+  const pct = limitSecs > 0 ? Math.round((1 - remaining / limitSecs) * 100) : 0;
+  const color = remaining < 300 ? 'var(--red)' : remaining < 600 ? 'var(--amber)' : 'var(--green)';
+  if (!existing) {
+    const bar = document.createElement('div');
+    bar.id = 'usage-bar';
+    bar.style.cssText = 'position:fixed;bottom:52px;left:50%;transform:translateX(-50%);z-index:50;display:flex;align-items:center;gap:10px;padding:6px 16px;border-radius:20px;background:rgba(4,8,15,0.85);border:1px solid var(--border);backdrop-filter:blur(8px);font-family:var(--fm);font-size:11px;white-space:nowrap';
+    bar.innerHTML = `<div id="usage-bar-track" style="width:100px;height:4px;border-radius:2px;background:rgba(255,255,255,0.1)"><div id="usage-bar-fill" style="height:100%;border-radius:2px;transition:width .5s"></div></div><span id="usage-bar-text"></span>`;
+    document.body.appendChild(bar);
+  }
+  document.getElementById('usage-bar-fill').style.cssText = `width:${pct}%;background:${color};height:100%;border-radius:2px;transition:width .5s`;
+  document.getElementById('usage-bar-text').style.color = color;
+  document.getElementById('usage-bar-text').textContent = `${formatTime(remaining)} left today`;
+}
+
+function showScheduleWarning(modeLabel, minutesLeft) {
+  document.getElementById('schedule-warning-banner')?.remove();
+  const banner = document.createElement('div');
+  banner.id = 'schedule-warning-banner';
+  banner.style.cssText = 'position:fixed;top:0;left:0;right:0;z-index:800;padding:10px 20px;background:linear-gradient(90deg,rgba(255,184,0,0.15),rgba(255,184,0,0.08));border-bottom:1px solid rgba(255,184,0,0.35);display:flex;align-items:center;justify-content:space-between;gap:12px;backdrop-filter:blur(8px);animation:toastIn .4s ease';
+  banner.innerHTML = `
+    <div style="display:flex;align-items:center;gap:10px">
+      <span style="font-size:20px">\u23F0</span>
+      <div>
+        <div style="font-family:var(--fd);font-size:10px;letter-spacing:2px;color:var(--amber)">HEADS UP</div>
+        <div style="font-size:13px;color:var(--text)">Switching to <strong style="color:var(--amber)">${modeLabel}</strong> in ${minutesLeft} minutes</div>
+      </div>
+    </div>
+    <button onclick="document.getElementById('schedule-warning-banner')?.remove()" style="padding:5px 12px;border-radius:14px;border:1px solid rgba(255,184,0,0.3);background:transparent;color:var(--amber);font-family:var(--fm);font-size:11px;cursor:pointer">Got it</button>`;
+  document.body.appendChild(banner);
+  setTimeout(() => banner.remove(), 90000);
+}
+
+function showTimeLimitReached(modeKey) {
+  const label = MODES[modeKey]?.label || modeKey;
+  const ov = document.createElement('div');
+  ov.id = 'timelimit-overlay';
+  ov.style.cssText = 'position:fixed;inset:0;z-index:600;display:flex;align-items:center;justify-content:center;background:rgba(4,8,15,0.97);flex-direction:column;gap:20px;text-align:center;padding:40px';
+  ov.innerHTML = `
+    <div style="font-size:64px">⏰</div>
+    <div style="font-family:var(--fd);font-size:20px;letter-spacing:4px;color:var(--amber)">TIME'S UP</div>
+    <div style="font-size:15px;color:var(--text);line-height:1.8;max-width:380px">
+      Daily time for <strong style="color:var(--amber)">${label}</strong> mode is finished.<br>
+      <span style="color:var(--muted);font-size:13px">Come back tomorrow, or ask a parent to adjust the limit.</span>
+    </div>
+    <div style="font-family:var(--fd);font-size:11px;letter-spacing:2px;color:var(--muted);margin-top:8px">DEVICE IS NOW LOCKED</div>`;
+  document.body.appendChild(ov);
+  currentMode = 'locked';
+  renderLauncher('locked');
+  showScreen('locked');
+  persistMode('locked');
+  // Auto-remove overlay after 10s
+  setTimeout(() => ov.remove(), 10000);
+}
+
+/* ══════════════════════════════════════════════════════════════════════════
+   SESSION MANAGER
+   Controls what happens when a child opens an app or website tile.
+   Only one session at a time. All launcher controls hidden while active.
+   EXIT GATE bar always visible at top — child presses it to return.
+══════════════════════════════════════════════════════════════════════════ */
+let activeSession = null;
+let activeWebviewUrl = null;
+let currentWebviewConfigs = [];
+
+function enterSession(type, title, icon, execPath, url, urlConfigs) {
+  if (activeSession) exitSession();
+  activeSession = { type, title, icon, execPath };
+
+  // Show EXIT GATE bar
+  document.getElementById('exit-gate-icon').textContent = icon || (type==='web'?'🌐':'🚀');
+  document.getElementById('exit-gate-title').textContent = title;
+  document.getElementById('exit-gate-bar').classList.add('active');
+
+  // Hide all launcher UI behind the session
+  document.body.classList.add('session-active');
+
+  activeSession._startTime = Date.now();
+  activeSession._usageTicker = null;
+
+  // Start usage ticker — reports every 10s to main process
+  activeSession._usageTicker = setInterval(async () => {
+    if (!activeSession) return;
+    const result = await LD.tickUsage(currentMode, 10);
+    if (result && result.limitReached) {
+      clearInterval(activeSession._usageTicker);
+      exitSession();
+      showTimeLimitReached(currentMode);
+    } else {
+      updateUsageDisplay();
+    }
+  }, 10000);
+
+  if (type === 'web') {
+    currentWebviewConfigs = urlConfigs || [];
+    activeWebviewUrl = url;
+    const panel = document.getElementById('browser-panel');
+    const wv = document.getElementById('browser-webview');
+    panel.classList.add('active');
+    wv.addEventListener('did-navigate', handleWebviewNav);
+    wv.addEventListener('did-navigate-in-page', handleWebviewNav);
+    wv.addEventListener('new-window', handleWebviewNewWindow);
+    wv.src = url;
+  } else {
+    document.getElementById('app-overlay-icon').textContent = icon || '🚀';
+    document.getElementById('app-overlay-name').textContent = title;
+    document.getElementById('app-overlay-hint').textContent = 'Running on this computer';
+    document.getElementById('app-overlay').classList.add('active');
+    if (execPath && LD.isElectron) {
+      LD.setSessionActive && LD.setSessionActive(execPath);
+      LD.launchApp(execPath);
+      // Watch for app closing itself
+      setTimeout(() => LD.startAppWatch && LD.startAppWatch(execPath), 2000);
+    }
+  }
+}
+
+function handleWebviewNav(e) {
+  const url = e.url || e.newURL;
+  if (!url || url === 'about:blank' || url.startsWith('file://')) return;
+  // Skip resource URLs — only check navigable pages
+  const isResource = /\.(css|js|png|jpg|jpeg|gif|svg|woff|woff2|ico|json|webp)$/i.test(url.split('?')[0]);
+  if (isResource) return;
+  const check = checkUrlClient(url, currentWebviewConfigs);
+  if (!check.ok) {
+    const wv = document.getElementById('browser-webview');
+    // Small delay — don't block mid-redirect on legitimate multi-step logins etc.
+    setTimeout(() => {
+      try { wv.stop(); } catch(err) {}
+      showWebBlocked(url, check.r);
+    }, 50);
+    setTimeout(() => {
+      if (!document.getElementById('web-blocked-overlay')) return;
+      const wv2 = document.getElementById('browser-webview');
+      try { if (wv2.canGoBack()) wv2.goBack(); else wv2.loadURL(activeWebviewUrl); } catch(err) {}
+      document.getElementById('web-blocked-overlay')?.remove();
+    }, 10000);
+  } else {
+    activeWebviewUrl = url; // Update safe URL on successful navigation
+  }
+}
+
+function handleWebviewNewWindow(e) {
+  const check = checkUrlClient(e.url, currentWebviewConfigs);
+  const wv = document.getElementById('browser-webview');
+  if (check.ok) { try { wv.loadURL(e.url); } catch(err) {} }
+  else showWebBlocked(e.url, check.r);
+}
+
+function checkUrlClient(url, configs) {
+  if (!url || url === 'about:blank') return { ok: true };
+  try {
+    const u = new URL(url.startsWith('http') ? url : 'https://' + url);
+    const host = u.hostname.replace(/^www\./, '');
+    const pathQ = (u.pathname + u.search).toLowerCase();
+    for (const cfg of (configs || [])) {
+      if (!cfg || !cfg.domain) continue;
+      const dom = cfg.domain.replace(/^www\./, '').split('/')[0];
+      if (host !== dom && !host.endsWith('.' + dom)) continue;
+      if (cfg.blockedKeys) {
+        for (const k of cfg.blockedKeys) {
+          if (k && pathQ.includes(k.toLowerCase())) return { ok: false, r: `"${k}" is blocked` };
+        }
+      }
+      if (cfg.allowedPaths && cfg.allowedPaths.length) {
+        const pass = cfg.allowedPaths.some(p => {
+          const c = p.startsWith('/') ? p : '/' + p;
+          return u.pathname === '/' || u.pathname.startsWith(c);
+        });
+        if (!pass) return { ok: false, r: 'Section not approved' };
+      }
+      return { ok: true };
+    }
+    if (configs && configs.length && configs.some(c => c && c.blockExternal)) {
+      return { ok: false, r: 'External site blocked' };
+    }
+    return { ok: true };
+  } catch(e) { return { ok: true }; }
+}
+
+function showWebBlocked(url, reason) {
+  document.getElementById('web-blocked-overlay')?.remove();
+  const ov = document.createElement('div');
+  ov.id = 'web-blocked-overlay';
+  ov.style.cssText = 'position:fixed;inset:0;top:52px;z-index:960;background:rgba(4,8,15,0.97);display:flex;flex-direction:column;align-items:center;justify-content:center;gap:18px;text-align:center;padding:40px;animation:fadeInSession .2s ease';
+  let secs = 10;
+  ov.innerHTML = `
+    <div style="font-size:60px">🚫</div>
+    <div style="font-family:var(--fd);font-size:18px;letter-spacing:4px;color:var(--red)">ACCESS BLOCKED</div>
+    <div style="padding:6px 18px;border-radius:20px;background:rgba(255,61,90,0.08);border:1px solid rgba(255,61,90,0.25);font-family:var(--fm);font-size:13px;color:rgba(255,61,90,0.9)">${reason||'Not approved'}</div>
+    <div style="font-size:14px;color:var(--text);line-height:1.8;max-width:400px">This section isn't allowed.<br>Returning you in <span id="wb-secs" style="color:var(--amber);font-family:var(--fd);font-size:18px">${secs}</span> seconds.</div>
+    <button onclick="document.getElementById('web-blocked-overlay')?.remove()" style="padding:10px 28px;border-radius:22px;border:2px solid rgba(0,200,255,0.4);background:rgba(0,200,255,0.08);color:var(--cyan);cursor:pointer;font-family:var(--fd);font-size:10px;letter-spacing:2px;font-weight:700">← RETURN NOW</button>`;
+  document.body.appendChild(ov);
+  const t = setInterval(() => {
+    secs--;
+    const el = document.getElementById('wb-secs');
+    if (el) el.textContent = secs;
+    if (secs <= 0) { clearInterval(t); document.getElementById('web-blocked-overlay')?.remove(); }
+  }, 1000);
+}
+
+function exitSession() {
+  if (!activeSession) return;
+  // Stop usage ticker
+  if (activeSession._usageTicker) {
+    clearInterval(activeSession._usageTicker);
+    activeSession._usageTicker = null;
+  }
+  // Stop app watcher
+  if (activeSession.type === 'app' && LD.isElectron) {
+    LD.stopAppWatch && LD.stopAppWatch();
+    LD.setSessionActive && LD.setSessionActive(null);
+    if (activeSession.execPath) LD.killApp(activeSession.execPath).catch(() => {});
+  }
+  // Clean up webview
+  const wv = document.getElementById('browser-webview');
+  try {
+    wv.removeEventListener('did-navigate', handleWebviewNav);
+    wv.removeEventListener('did-navigate-in-page', handleWebviewNav);
+    wv.removeEventListener('new-window', handleWebviewNewWindow);
+    wv.src = 'about:blank';
+  } catch(e) {}
+  // Hide everything
+  document.getElementById('exit-gate-bar').classList.remove('active');
+  document.getElementById('browser-panel').classList.remove('active');
+  document.getElementById('app-overlay').classList.remove('active');
+  document.getElementById('web-blocked-overlay')?.remove();
+  document.body.classList.remove('session-active');
+
+  // Log the session to activity log
+  const durationSecs = Math.round((Date.now() - (activeSession._startTime||Date.now())) / 1000);
+  if (LD.isElectron && activeSession && durationSecs > 2) {
+    LD.logActivity && LD.logActivity({
+      type: activeSession.type,
+      title: activeSession.title,
+      mode: currentMode,
+      durationSecs,
+      url: activeWebviewUrl || null
+    });
+  }
+
+  activeSession = null;
+  activeWebviewUrl = null;
+  currentWebviewConfigs = [];
+}
+
+// Add fade-in animation for session overlays
+const _sessStyle = document.createElement('style');
+_sessStyle.textContent = '@keyframes fadeInSession{from{opacity:0}to{opacity:1}}';
+document.head.appendChild(_sessStyle);
+
+async function persistAll(){
+  if(!LD.isElectron||!appData)return;
+  // Save child-specific data into the active child profile
+  const activeChild=(appData.children||[]).find(c=>c.id===appData.activeChildId)||appData.children?.[0];
+  if(activeChild){
+    activeChild.modes=MODES;
+    activeChild.schedule=schedule;
+    activeChild.currentMode=currentMode;
+    activeChild.usageToday=usageToday;
+    activeChild.timeLimits=timeLimits;
+  }
+  // Save global settings
+  appData.pin=appPin;
+  appData.pinSet=!!(appPin);
+  appData.kioskMode=appData.kioskMode||false;
+  appData.blockingEnabled=appData.blockingEnabled!==false;
+  await LD.saveData(appData);
+}
+async function persistMode(key){
+  if(!LD.isElectron||!appData)return;
+  // Keep active child in sync
+  const ac=(appData.children||[]).find(c=>c.id===appData.activeChildId)||appData.children?.[0];
+  if(ac) ac.currentMode=key;
+  await LD.setMode(key);
+}
+
+/* ── Real PIN gate — defined above in gateSubmit() ── */
 
 /* ── Panel with system controls ── */
 function renderPanelModes(){
   document.getElementById('panel-mode-list').innerHTML=Object.entries(MODES).map(([k,m])=>`
     <div class="mode-row ${k===currentMode?'active':''}">
-      <div class="mode-row-icon" onclick="requestSwitch('${k}')" style="cursor:pointer">${m.tiles[0]?m.tiles[0].icon:'🔒'}</div>
+      <div class="mode-row-icon" onclick="requestSwitch('${k}')" style="cursor:pointer">${m.icon||(m.tiles[0]?m.tiles[0].icon:'🔲')}</div>
       <div class="mode-row-info" onclick="requestSwitch('${k}')" style="cursor:pointer">
         <div class="mode-row-name">${m.label}</div>
         <div class="mode-row-meta">${m.tiles.length} tiles</div>
@@ -1471,19 +1924,297 @@ function renderPanelModes(){
     </div>`).join('');
   const old=document.getElementById('panel-sys-controls');if(old)old.remove();
   const pb=document.querySelector('#parent-panel .sh-body');if(!pb)return;
+  const kioskOff=!appData?.kioskMode;
   const d=document.createElement('div');d.id='panel-sys-controls';
+  // Build active child info
+  const activeChildInfo = (appData?.children||[]).find(c=>c.id===appData?.activeChildId)||appData?.children?.[0];
+  const childrenList = (appData?.children||[]);
+
   d.innerHTML=`
     <div class="divider"></div>
+    <div>
+      <div class="sec-label">Active Child</div>
+      <div style="display:flex;align-items:center;gap:10px;padding:10px 12px;border-radius:10px;background:rgba(0,200,255,0.05);border:1px solid var(--border);margin-bottom:8px">
+        <div style="font-size:28px">${activeChildInfo?.avatar||'🧒'}</div>
+        <div style="flex:1">
+          <div style="font-family:var(--fd);font-size:12px;letter-spacing:2px;color:var(--cyan)">${activeChildInfo?.name||'Child'}</div>
+          <div style="font-size:11px;color:var(--muted);font-family:var(--fm)">${Object.keys(activeChildInfo?.modes||{}).filter(k=>k!=='locked').length} modes</div>
+        </div>
+        <button class="mode-row-sw" onclick="openChildManager()" style="white-space:nowrap">👶 Manage</button>
+      </div>
+      ${childrenList.length>1?`<div style="display:flex;gap:8px;flex-wrap:wrap;margin-bottom:8px">
+        ${childrenList.map(c=>`<button onclick="switchToChild('${c.id}')" style="padding:7px 12px;border-radius:20px;border:1px solid ${c.id===appData?.activeChildId?'var(--cyan)':'var(--border)'};background:${c.id===appData?.activeChildId?'rgba(0,200,255,0.1)':'transparent'};color:${c.id===appData?.activeChildId?'var(--cyan)':'var(--muted)'};font-family:var(--fm);font-size:11px;cursor:pointer">${c.avatar} ${c.name}</button>`).join('')}
+      </div>`:''}
+    </div>
+    <div class="divider"></div>
+    ${kioskOff?`<div style="padding:10px 12px;border-radius:9px;background:rgba(255,184,0,0.08);border:1px solid rgba(255,184,0,0.3);font-size:12px;color:var(--amber);font-family:var(--fm);margin-bottom:8px">
+      ⚠️ <b>Kiosk mode is OFF</b> — child can minimise or resize the window. Enable it below for full lockdown.
+    </div>`:''}
     <div><div class="sec-label">System</div>
     <div style="display:flex;gap:8px;flex-wrap:wrap;margin-top:6px">
+      <button class="mode-row-sw" style="border-color:rgba(0,200,255,0.35);color:var(--cyan)" onclick="showActivityLog()">📋 Activity Log</button>
+      <button class="mode-row-sw" style="border-color:rgba(176,96,255,0.35);color:var(--purple)" onclick="showTimeLimitsPanel()">⏱ Time Limits</button>
       <button class="mode-row-sw" style="border-color:rgba(0,200,255,0.35);color:var(--cyan)" onclick="changePinFlow()">🔑 Change PIN</button>
-      <button class="mode-row-sw" style="border-color:rgba(176,96,255,0.35);color:var(--purple)" onclick="toggleKioskFlow()">🖥 Kiosk Mode</button>
+      <button class="mode-row-sw" style="border-color:rgba(176,96,255,0.35);color:var(--purple)" onclick="toggleKioskFlow()">🖥 Kiosk ${appData?.kioskMode?'ON':'OFF'}</button>
       <button class="mode-row-sw" style="border-color:rgba(0,255,136,0.35);color:var(--green)" onclick="toggleStartupFlow()">⚡ Auto-Start</button>
       <button class="mode-row-sw" id="blocking-btn" style="border-color:rgba(255,184,0,0.35);color:var(--amber)" onclick="toggleBlocking()">${appData?.blockingEnabled!==false?'🛡 Blocking ON':'🛡 Blocking OFF'}</button>
       <button class="mode-row-sw" style="border-color:rgba(0,200,255,0.35);color:var(--cyan)" onclick="manualCheckUpdate()">🔄 Check for Updates</button>
+      <button class="mode-row-sw" style="border-color:rgba(0,255,136,0.35);color:var(--green)" onclick="showRemotePanel()">📱 Phone Remote</button>
       ${LD.isElectron?'<button class="mode-row-sw" style="border-color:rgba(255,61,90,0.35);color:var(--red)" onclick="quitApp()">✕ Exit BrightGate</button>':''}
     </div></div>`;
   pb.appendChild(d);
+}
+
+/* ── Time Limits Panel ── */
+async function showTimeLimitsPanel(){
+  closeOverlay('parent-panel');
+  const usage = LD.isElectron ? await LD.getUsage() : { today: usageToday, limits: timeLimits };
+  const today = usage.today || {};
+  const limits = usage.limits || {};
+
+  const existing = document.getElementById('timelimits-overlay');
+  if(existing) existing.remove();
+  const ov = document.createElement('div');
+  ov.id = 'timelimits-overlay';
+  ov.style.cssText = 'position:fixed;inset:0;z-index:400;display:flex;align-items:center;justify-content:center;background:rgba(0,0,0,0.88);backdrop-filter:blur(10px)';
+
+  const userModes = Object.entries(MODES).filter(([k]) => k !== 'locked');
+
+  const rows = userModes.map(([k, m]) => {
+    const usedSecs = today[k] || 0;
+    const limitMins = limits[k] || 0;
+    const usedMins = Math.round(usedSecs / 60);
+    const pct = limitMins > 0 ? Math.min(100, Math.round(usedSecs / (limitMins * 60) * 100)) : 0;
+    const barColor = pct >= 90 ? 'var(--red)' : pct >= 60 ? 'var(--amber)' : 'var(--green)';
+    return `
+      <div style="padding:12px;border-radius:10px;background:rgba(0,200,255,0.04);border:1px solid var(--border);display:flex;flex-direction:column;gap:8px">
+        <div style="display:flex;align-items:center;gap:8px">
+          <span style="font-size:18px">${m.tiles[0]?.icon||'🔲'}</span>
+          <div style="flex:1">
+            <div style="font-family:var(--fd);font-size:11px;letter-spacing:2px;color:${m.color}">${m.label}</div>
+            <div style="font-size:11px;color:var(--muted);font-family:var(--fm)">Used today: ${usedMins}m${limitMins?' / '+limitMins+'m limit':' (no limit)'}</div>
+          </div>
+        </div>
+        ${limitMins > 0 ? `<div style="height:4px;border-radius:2px;background:rgba(255,255,255,0.08)"><div style="width:${pct}%;height:100%;border-radius:2px;background:${barColor}"></div></div>` : ''}
+        <div style="display:flex;align-items:center;gap:8px">
+          <input type="number" id="limit-${k}" min="0" max="480" placeholder="No limit"
+            value="${limitMins||''}"
+            style="flex:1;padding:7px 10px;border-radius:8px;border:1px solid var(--border);background:rgba(0,200,255,0.04);color:var(--text);font-family:var(--fm);font-size:12px;outline:none">
+          <span style="font-size:12px;color:var(--muted);font-family:var(--fm);white-space:nowrap">min/day</span>
+          <button onclick="saveTimeLimit('${k}')" style="padding:6px 12px;border-radius:8px;border:1px solid rgba(0,200,255,0.3);background:transparent;color:var(--cyan);font-family:var(--fm);font-size:11px;cursor:pointer;white-space:nowrap">Save</button>
+        </div>
+      </div>`;
+  }).join('');
+
+  ov.innerHTML = `
+    <div style="background:linear-gradient(160deg,#0d1a2e,#070e1c);border:1px solid rgba(176,96,255,0.3);border-radius:18px;padding:28px 32px;width:440px;max-height:85vh;display:flex;flex-direction:column;gap:14px;overflow-y:auto">
+      <div style="font-family:var(--fd);font-size:12px;letter-spacing:3px;color:var(--purple);text-align:center">⏱ DAILY TIME LIMITS</div>
+      <div style="font-size:12px;color:var(--muted);text-align:center;font-family:var(--fm)">Set how many minutes per day each mode is available. Leave blank for no limit. Resets at midnight.</div>
+      <div style="display:flex;flex-direction:column;gap:8px">${rows||'<div style="text-align:center;color:var(--muted);font-family:var(--fm);padding:20px">No modes created yet</div>'}</div>
+      <button onclick="document.getElementById('timelimits-overlay').remove();openOverlay('parent-panel');renderPanelModes();"
+        style="padding:10px;border-radius:10px;border:1px solid var(--border);background:transparent;color:var(--muted);font-family:var(--fd);font-size:10px;letter-spacing:1px;cursor:pointer">CLOSE</button>
+    </div>`;
+  document.body.appendChild(ov);
+}
+
+async function saveTimeLimit(modeKey) {
+  const inp = document.getElementById('limit-'+modeKey);
+  const mins = parseInt(inp?.value) || 0;
+  if (LD.isElectron) await LD.setTimeLimit(modeKey, mins);
+  if (!timeLimits) timeLimits = {};
+  if (mins <= 0) delete timeLimits[modeKey];
+  else timeLimits[modeKey] = mins;
+  if (appData) {
+    if (!appData.timeLimits) appData.timeLimits = {};
+    if (mins <= 0) delete appData.timeLimits[modeKey];
+    else appData.timeLimits[modeKey] = mins;
+  }
+  toast(mins > 0 ? `✓ ${MODES[modeKey]?.label||modeKey}: ${mins} min/day` : `✓ No limit for ${MODES[modeKey]?.label||modeKey}`, 't-s');
+  updateUsageDisplay();
+}
+
+/* ── Activity Log ── */
+function showActivityLog(){
+  closeOverlay('parent-panel');
+  const activeChildProfile = (appData?.children||[]).find(c=>c.id===appData?.activeChildId)||appData?.children?.[0];
+  const log = activeChildProfile?.activityLog || appData?.activityLog || [];
+  const existing = document.getElementById('activity-log-overlay');
+  if(existing) existing.remove();
+  const ov = document.createElement('div');
+  ov.id = 'activity-log-overlay';
+  ov.style.cssText = 'position:fixed;inset:0;z-index:400;display:flex;align-items:center;justify-content:center;background:rgba(0,0,0,0.88);backdrop-filter:blur(10px)';
+
+  const formatDur = s => s < 60 ? `${s}s` : `${Math.floor(s/60)}m ${s%60}s`;
+
+  const rows = log.length === 0
+    ? '<div style="text-align:center;color:var(--muted);font-family:var(--fm);padding:32px">No activity recorded yet</div>'
+    : log.slice(0, 100).map(e => `
+        <div style="display:flex;align-items:center;gap:10px;padding:8px 12px;border-radius:8px;background:rgba(0,200,255,0.04);border:1px solid var(--border);margin-bottom:5px">
+          <span style="font-size:18px">${e.type==='web'?'🌐':'🚀'}</span>
+          <div style="flex:1;overflow:hidden">
+            <div style="font-size:13px;font-weight:700;overflow:hidden;text-overflow:ellipsis;white-space:nowrap">${e.title||'Unknown'}</div>
+            <div style="font-size:10px;color:var(--muted);font-family:var(--fm)">${e.date} · ${e.mode||''} · ${formatDur(e.durationSecs||0)}</div>
+          </div>
+        </div>`).join('');
+
+  ov.innerHTML = `
+    <div style="background:linear-gradient(160deg,#0d1a2e,#070e1c);border:1px solid rgba(0,200,255,0.3);border-radius:18px;padding:28px 32px;width:480px;max-height:80vh;display:flex;flex-direction:column;gap:14px">
+      <div style="display:flex;align-items:center;justify-content:space-between">
+        <div style="font-family:var(--fd);font-size:12px;letter-spacing:3px;color:var(--cyan)">📋 ACTIVITY LOG</div>
+        <div style="font-family:var(--fm);font-size:11px;color:var(--muted)">${log.length} sessions recorded</div>
+      </div>
+      <div style="overflow-y:auto;max-height:calc(80vh - 140px);padding-right:4px">${rows}</div>
+      <div style="display:flex;gap:10px">
+        <button onclick="clearActivityLog()" style="padding:9px 16px;border-radius:9px;border:1px solid rgba(255,61,90,0.3);background:transparent;color:var(--red);font-family:var(--fm);font-size:11px;cursor:pointer">🗑 Clear Log</button>
+        <button onclick="document.getElementById('activity-log-overlay').remove();openOverlay('parent-panel');renderPanelModes();" style="flex:1;padding:9px;border-radius:9px;border:1px solid var(--border);background:transparent;color:var(--muted);font-family:var(--fd);font-size:10px;letter-spacing:1px;cursor:pointer">CLOSE</button>
+      </div>
+    </div>`;
+  document.body.appendChild(ov);
+}
+
+async function clearActivityLog(){
+  const ac2=(appData?.children||[]).find(c=>c.id===appData?.activeChildId)||appData?.children?.[0];
+  if(ac2) ac2.activityLog=[];
+  else if(appData) appData.activityLog=[];
+  await persistAll();
+  document.getElementById('activity-log-overlay')?.remove();
+  toast('Activity log cleared','t-s');
+}
+
+/* ── Child Manager ── */
+async function switchToChild(childId) {
+  if (!LD.isElectron) return;
+  await LD.setActiveChild(childId);
+  const saved = await LD.loadData();
+  if (saved) {
+    appData = saved;
+    Object.keys(MODES).forEach(k => { if (k !== 'locked') delete MODES[k]; });
+    const child = (saved.children || []).find(c => c.id === childId);
+    if (child && child.modes) Object.assign(MODES, child.modes);
+    if (child) {
+      currentMode = child.currentMode || 'locked';
+      usageToday = child.usageToday || {};
+      timeLimits = child.timeLimits || {};
+    }
+    renderLauncher(currentMode);
+    showScreen(currentMode === 'locked' ? 'locked' : 'launcher');
+  }
+  closeOverlay('parent-panel');
+  toast('👶 Switched to ' + ((saved?.children||[]).find(c=>c.id===childId)?.name || 'child'), 't-s');
+}
+
+async function openChildManager() {
+  closeOverlay('parent-panel');
+  const children = LD.isElectron ? await LD.listChildren() : (appData?.children || []);
+  const existing = document.getElementById('child-manager-overlay');
+  if (existing) existing.remove();
+  const ov = document.createElement('div');
+  ov.id = 'child-manager-overlay';
+  ov.style.cssText = 'position:fixed;inset:0;z-index:400;display:flex;align-items:center;justify-content:center;background:rgba(0,0,0,0.88);backdrop-filter:blur(10px)';
+
+  const AVATARS = ['🧒','👦','👧','🧑','👩','👨','🦊','🐱','🐶','🦁','🐯','🐸','🦄','🐺','🦅','🐬'];
+
+  const childRows = children.map(c => `
+    <div style="display:flex;align-items:center;gap:10px;padding:10px 12px;border-radius:10px;background:rgba(0,200,255,0.04);border:1px solid var(--border)">
+      <div style="font-size:28px">${c.avatar||'🧒'}</div>
+      <div style="flex:1">
+        <div style="font-family:var(--fd);font-size:12px;letter-spacing:2px;color:var(--text)">${c.name}</div>
+        <div style="font-size:10px;color:var(--muted);font-family:var(--fm)">${Object.keys(c.modes||{}).filter(k=>k!=='locked').length} modes · ${Object.keys(c.timeLimits||{}).length} time limits</div>
+      </div>
+      ${c.id !== appData?.activeChildId ? `<button onclick="switchToChild('${c.id}');document.getElementById('child-manager-overlay')?.remove();" style="padding:6px 12px;border-radius:8px;border:1px solid rgba(0,200,255,0.3);background:transparent;color:var(--cyan);font-family:var(--fm);font-size:10px;cursor:pointer">Switch</button>` : '<span style="font-family:var(--fd);font-size:8px;letter-spacing:1px;color:var(--green);padding:4px 8px;border-radius:8px;background:rgba(0,255,136,0.1);border:1px solid rgba(0,255,136,0.2)">ACTIVE</span>'}
+      ${children.length > 1 ? `<button onclick="removeChild('${c.id}')" style="padding:6px 10px;border-radius:8px;border:1px solid rgba(255,61,90,0.3);background:transparent;color:var(--red);font-family:var(--fm);font-size:10px;cursor:pointer">🗑</button>` : ''}
+    </div>`).join('');
+
+  ov.innerHTML = `
+    <div style="background:linear-gradient(160deg,#0a1a2e,#070e1c);border:1px solid rgba(0,200,255,0.25);border-radius:20px;padding:28px 32px;width:420px;max-height:85vh;display:flex;flex-direction:column;gap:14px;overflow-y:auto">
+      <div style="font-family:var(--fd);font-size:12px;letter-spacing:3px;color:var(--cyan);text-align:center">👶 CHILD PROFILES</div>
+      <div style="display:flex;flex-direction:column;gap:8px">${childRows}</div>
+      <div class="divider"></div>
+      <div style="font-family:var(--fd);font-size:10px;letter-spacing:2px;color:var(--muted)">ADD NEW CHILD</div>
+      <div style="display:flex;gap:8px">
+        <input id="new-child-name" class="txt-in" placeholder="Child's name" maxlength="20" style="flex:1">
+        <select id="new-child-avatar" style="padding:9px 10px;border-radius:9px;border:1px solid var(--border);background:rgba(0,200,255,0.04);color:var(--text);font-size:18px;cursor:pointer;outline:none">
+          ${AVATARS.map(a=>`<option value="${a}">${a}</option>`).join('')}
+        </select>
+        <button onclick="addChild()" class="add-btn">+ ADD</button>
+      </div>
+      <button onclick="document.getElementById('child-manager-overlay').remove();openOverlay('parent-panel');renderPanelModes();" style="padding:10px;border-radius:10px;border:1px solid var(--border);background:transparent;color:var(--muted);font-family:var(--fd);font-size:10px;letter-spacing:1px;cursor:pointer">CLOSE</button>
+    </div>`;
+  document.body.appendChild(ov);
+}
+
+async function addChild() {
+  const name = document.getElementById('new-child-name')?.value.trim();
+  const avatar = document.getElementById('new-child-avatar')?.value || '🧒';
+  if (!name) { toast('Enter a name for the child', 't-w'); return; }
+  const existingChild = (appData?.children||[]).find(c=>c.name.toLowerCase()===name.toLowerCase());
+  if (existingChild) { toast('A child named '+name+' already exists', 't-w'); return; }
+  if (LD.isElectron) {
+    await LD.addChild(name, avatar);
+  } else {
+    // Demo mode
+    if (!appData.children) appData.children = [];
+    appData.children.push({ id: 'child_'+Date.now(), name, avatar, modes: { locked: MODES.locked }, currentMode: 'locked', schedule: [], timeLimits: {}, usageToday: {} });
+  }
+  toast('✓ '+name+' added', 't-s');
+  openChildManager(); // Refresh
+}
+
+async function removeChild(childId) {
+  if (!confirm('Remove this child profile? All their modes and settings will be deleted.')) return;
+  if (LD.isElectron) {
+    const result = await LD.removeChild(childId);
+    if (result?.error) { toast(result.error, 't-w'); return; }
+  }
+  toast('Child profile removed', 't-w');
+  openChildManager();
+}
+
+/* ── Phone Remote Panel ── */
+async function showRemotePanel(){
+  closeOverlay('parent-panel');
+  const ip = LD.isElectron ? await LD.getLocalIP() : '192.168.1.x';
+  const url = `http://${ip}:7743`;
+
+  const existing = document.getElementById('remote-panel-overlay');
+  if(existing) existing.remove();
+  const ov = document.createElement('div');
+  ov.id = 'remote-panel-overlay';
+  ov.style.cssText = 'position:fixed;inset:0;z-index:400;display:flex;align-items:center;justify-content:center;background:rgba(0,0,0,0.88);backdrop-filter:blur(10px)';
+  ov.innerHTML = `
+    <div style="background:linear-gradient(160deg,#0a1a2e,#070e1c);border:1px solid rgba(0,255,136,0.25);border-radius:20px;padding:32px 36px;width:400px;display:flex;flex-direction:column;align-items:center;gap:18px;text-align:center">
+      <div style="font-size:48px">📱</div>
+      <div style="font-family:var(--fd);font-size:12px;letter-spacing:3px;color:var(--green)">PHONE REMOTE CONTROL</div>
+      <div style="font-size:13px;color:var(--text);line-height:1.8;max-width:300px">
+        Open this address in your phone's browser while connected to the same WiFi:
+      </div>
+      <div style="padding:14px 20px;border-radius:12px;background:rgba(0,255,136,0.06);border:1px solid rgba(0,255,136,0.2);font-family:var(--fm);font-size:18px;color:var(--green);letter-spacing:1px;width:100%;word-break:break-all">
+        ${url}
+      </div>
+      <div style="font-size:12px;color:var(--muted);font-family:var(--fm);line-height:1.7">
+        You will need your parent PIN to log in.<br>
+        PC and phone must be on the same WiFi.
+      </div>
+      <div style="display:flex;gap:10px;width:100%">
+        <button onclick="shareRemoteLink()" style="flex:1;padding:12px;border-radius:10px;border:none;background:linear-gradient(135deg,#006040,var(--green));color:#040810;font-family:var(--fd);font-size:10px;font-weight:700;letter-spacing:2px;cursor:pointer">
+          ✉ EMAIL LINK
+        </button>
+        <button onclick="document.getElementById('remote-panel-overlay').remove();openOverlay('parent-panel');renderPanelModes();" style="padding:12px 18px;border-radius:10px;border:1px solid var(--border);background:transparent;color:var(--muted);font-family:var(--fd);font-size:10px;cursor:pointer">
+          CLOSE
+        </button>
+      </div>
+    </div>`;
+  document.body.appendChild(ov);
+}
+
+async function shareRemoteLink(){
+  if(LD.isElectron){
+    const result = await LD.emailRemoteLink();
+    toast('✓ Opening email with remote link…','t-s');
+    document.getElementById('remote-panel-overlay')?.remove();
+  } else {
+    toast('Email only available in installed app','t-w');
+  }
 }
 
 /* ── PIN change modal ── */
@@ -1506,7 +2237,9 @@ function changePinFlow(){
 async function savePinChange(){
   const n=document.getElementById('pin-new')?.value.trim();
   const c=document.getElementById('pin-confirm')?.value.trim();
-  if(!n||n.length<3){toast('PIN must be at least 3 characters','t-w');return;}
+  if(!n||n.length<4){toast('PIN must be at least 4 digits','t-w');return;}
+  if(!/^\d+$/.test(n)){toast('PIN must be numbers only','t-w');return;}
+  if(n==='1234'||n==='0000'||n==='1111'||n==='1234'){toast('Choose a less obvious PIN','t-w');return;}
   if(n!==c){toast('PINs do not match — try again','t-w');return;}
   appPin=n;
   await LD.setPin(n);
@@ -1516,11 +2249,28 @@ async function savePinChange(){
 }
 
 /* ── Lazy app scanner — triggered by "Populate Apps" button ── */
-async function populateApps(containerId, context) {
-  const btn = document.getElementById(containerId === 'te-app-picker' ? 'te-populate-btn' : 'builder-populate-btn');
-  if (btn) { btn.textContent = '⏳ Scanning installed apps… please wait'; btn.disabled = true; }
+async function populateApps(containerId, context, forceRescan=false) {
+  const btnId = containerId === 'te-app-picker' ? 'te-populate-btn' : 'builder-populate-btn';
+  const btn = document.getElementById(btnId);
 
-  if (!scannedAppsLoaded) await loadScannedApps();
+  // Try loading from cache first
+  if (!scannedAppsLoaded && !forceRescan && LD.isElectron) {
+    const cached = await LD.loadScanCache();
+    if (cached && cached.length > 0) {
+      scannedApps = cached;
+      scannedAppsLoaded = true;
+      console.log('[AppPicker] Using cached scan:', cached.length, 'apps');
+    }
+  }
+
+  if (!scannedAppsLoaded || forceRescan) {
+    if (btn) { btn.textContent = '⏳ Scanning installed apps…'; btn.disabled = true; }
+    await loadScannedApps();
+    // Save to cache
+    if (LD.isElectron && scannedApps.length > 0) {
+      LD.saveScanCache && LD.saveScanCache(scannedApps);
+    }
+  }
 
   const selectedApps = context === 'te'
     ? (MODES[editModeKey]?.tiles?.filter(t => !t.url) || [])
@@ -1529,6 +2279,21 @@ async function populateApps(containerId, context) {
   const callback = context === 'te' ? window._teAppCallback : window._builderAppCallback;
 
   await renderAppPicker(containerId, selectedApps, callback);
+
+  // Add rescan button below picker
+  const rescanId = containerId + '-rescan';
+  if (!document.getElementById(rescanId)) {
+    const rescanBtn = document.createElement('button');
+    rescanBtn.id = rescanId;
+    rescanBtn.className = 'btn-secondary';
+    rescanBtn.style.cssText = 'margin-top:8px;padding:6px 14px;font-size:10px;letter-spacing:1px';
+    rescanBtn.textContent = '🔄 Rescan Apps';
+    rescanBtn.onclick = () => {
+      scannedAppsLoaded = false;
+      populateApps(containerId, context, true);
+    };
+    document.getElementById(containerId)?.after(rescanBtn);
+  }
 }
 
 /* ── Mode URL config renderer (used in tile editor) ── */
@@ -1706,6 +2471,11 @@ async function quitApp(){closeOverlay('parent-panel');await LD.quit();}
 
 /* ── Tile launcher with real app/URL support ── */
 function renderLauncher(mode){
+  if(!MODES[mode]){
+    // Mode no longer exists — fall back to first available or locked
+    const fallback=Object.keys(MODES).find(k=>k!=='locked')||'locked';
+    currentMode=fallback; mode=fallback;
+  }
   const m=MODES[mode];
   document.getElementById('mode-label-top').textContent=m.label+' MODE';
   document.getElementById('mode-dot').style.cssText=`width:7px;height:7px;border-radius:50%;background:${m.color};animation:pulse 2s infinite`;
@@ -1736,17 +2506,24 @@ function renderLauncher(mode){
   m.tiles.forEach((t)=>{
     const d=document.createElement('div');d.className='tile';
     d.style.setProperty('--tile-c',t.c);d.style.setProperty('--tile-glow',t.c+'33');
-    d.innerHTML=`<div class="tile-pip"></div><div class="tile-edit-btn" title="Edit tiles" onclick="event.stopPropagation();openTileEditor('${mode}')">✏</div><div class="tile-icon">${t.icon}</div><div class="tile-label">${t.label}</div>`;
+    const safeLabel=String(t.label||'').replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;');
+    d.innerHTML=`<div class="tile-pip"></div><div class="tile-edit-btn" title="Edit tiles" onclick="event.stopPropagation();openTileEditor('${mode}')">✏</div><div class="tile-icon">${t.icon}</div><div class="tile-label">${safeLabel}</div>`;
     d.addEventListener('click',(e)=>{
       if(e.target.classList.contains('tile-edit-btn'))return;
-      if(t.execPath)LD.launchApp(t.execPath).then(r=>{if(!r.success)toast('Could not launch '+t.label,'t-w');else toast('🚀 Launching '+t.label+'…','t-i');});
-      else if(t.url){
+      // Block tile interaction if a session is already active
+      if(activeSession){ toast('Exit current session first','t-w'); return; }
+      if(t.execPath){
+        // Launch app — show app overlay within BrightGate
+        enterSession('app', t.label, t.icon||'🚀', t.execPath, null, null);
+      } else if(t.url){
+        // Open website — load in in-window browser panel
         const modeConfigs=(MODES[mode]?.urlConfigs||[]);
         const tileConfig=t.urlConfig||(modeConfigs.find(c=>t.url.includes(c.domain)));
         const configs=tileConfig?[tileConfig]:modeConfigs.length?modeConfigs:[{domain:t.url.replace(/^https?:\/\//,'').split('/')[0],blockExternal:true,blockedKeys:[],allowedPaths:[]}];
-        LD.openUrl(t.url,t.label,configs).then(()=>toast('🌐 Opening '+t.label+'…','t-i'));
+        enterSession('web', t.label, t.icon||'🌐', null, t.url, configs);
+      } else {
+        toast('🚀 '+t.label+' — no app path set','t-w');
       }
-      else toast('🚀 '+t.label,'t-i');
     });
     g.appendChild(d);
   });
@@ -1756,6 +2533,52 @@ function renderLauncher(mode){
 /* ── Persist on mode save / switch ── */
 // finishSwitch/doFinishSwitch handle persist directly — no override needed
 
+/* ── PIN Setup Wizard — shown on first run ── */
+function showPinSetupWizard(){
+  const existing=document.getElementById('pin-setup-overlay');if(existing)return;
+  const ov=document.createElement('div');
+  ov.id='pin-setup-overlay';
+  ov.style.cssText='position:fixed;inset:0;z-index:600;display:flex;align-items:center;justify-content:center;background:rgba(4,8,15,0.99)';
+  ov.innerHTML=`
+    <div style="background:linear-gradient(160deg,#0a1628,#070e1c);border:1px solid rgba(0,200,255,0.3);border-radius:20px;padding:40px;width:400px;display:flex;flex-direction:column;align-items:center;gap:20px;text-align:center">
+      <div style="font-size:48px">🔐</div>
+      <div style="font-family:var(--fd);font-size:14px;letter-spacing:3px;color:var(--cyan)">WELCOME TO BRIGHTGATE</div>
+      <div style="font-size:14px;color:var(--text);line-height:1.8;max-width:320px">
+        Before your child uses this device, set a <strong>Parent PIN</strong>.<br>
+        You'll need this to open the parent controls.
+      </div>
+      <input id="setup-pin1" type="password" inputmode="numeric" class="gate-input"
+        placeholder="Choose a PIN (4–8 digits)" maxlength="8" autocomplete="new-password"
+        style="width:100%;font-size:20px;letter-spacing:6px;text-align:center">
+      <input id="setup-pin2" type="password" inputmode="numeric" class="gate-input"
+        placeholder="Confirm PIN" maxlength="8" autocomplete="new-password"
+        style="width:100%;font-size:20px;letter-spacing:6px;text-align:center"
+        onkeydown="if(event.key==='Enter')confirmPinSetup()">
+      <div id="setup-pin-err" style="font-size:12px;color:var(--red);font-family:var(--fm);min-height:16px"></div>
+      <button onclick="confirmPinSetup()" style="width:100%;padding:14px;border-radius:12px;border:none;background:linear-gradient(135deg,#006090,#00c8ff);color:#fff;font-family:var(--fd);font-size:11px;font-weight:700;letter-spacing:2px;cursor:pointer;font-size:13px">
+        SET PIN &amp; START
+      </button>
+    </div>`;
+  document.body.appendChild(ov);
+  setTimeout(()=>document.getElementById('setup-pin1')?.focus(),200);
+}
+
+async function confirmPinSetup(){
+  const p1=document.getElementById('setup-pin1')?.value.trim();
+  const p2=document.getElementById('setup-pin2')?.value.trim();
+  const err=document.getElementById('setup-pin-err');
+  if(!p1||p1.length<4){if(err)err.textContent='PIN must be at least 4 digits';return;}
+  if(!/^\d+$/.test(p1)){if(err)err.textContent='PIN must be numbers only';return;}
+  if(p1==='1234'||p1==='0000'||p1==='1111'){if(err)err.textContent='Choose a less obvious PIN';return;}
+  if(p1!==p2){if(err)err.textContent='PINs do not match';return;}
+  appPin=p1;
+  if(LD.isElectron){ await LD.setPin(p1); }
+  await persistAll(); // Ensure pin is saved before anything else
+  document.getElementById('pin-setup-overlay')?.remove();
+  toast('✓ PIN set — welcome to BrightGate!','t-s');
+  setTimeout(openPinGate, 600); // Small delay so toast is visible
+}
+
 /* ══ INIT ══ */
 async function init(){
   if(LD.isElectron){
@@ -1763,19 +2586,90 @@ async function init(){
       const saved=await LD.loadData();
       if(saved){
         appData=saved;
-        if(saved.modes)Object.assign(MODES,saved.modes);
-        if(saved.schedule&&saved.schedule.length===7)schedule.splice(0,7,...saved.schedule);
-        if(saved.currentMode&&MODES[saved.currentMode])currentMode=saved.currentMode;
-        if(saved.pin)appPin=saved.pin;
+        // Load child-specific data from active child profile
+        const activeChild=(saved.children||[]).find(c=>c.id===saved.activeChildId)||saved.children?.[0];
+        if(activeChild){
+          if(activeChild.modes) Object.assign(MODES,activeChild.modes);
+          if(activeChild.schedule&&activeChild.schedule.length===7) schedule.splice(0,7,...activeChild.schedule);
+          if(activeChild.currentMode&&MODES[activeChild.currentMode]) currentMode=activeChild.currentMode;
+          usageToday=activeChild.usageToday||{};
+          timeLimits=activeChild.timeLimits||{};
+        } else {
+          // Legacy flat data (pre-migration)
+          if(saved.modes) Object.assign(MODES,saved.modes);
+          if(saved.schedule&&saved.schedule.length===7) schedule.splice(0,7,...saved.schedule);
+          if(saved.currentMode&&MODES[saved.currentMode]) currentMode=saved.currentMode;
+        }
+        if(saved.pin) appPin=saved.pin;
+        else if(saved.pin===null||!saved.pinSet){
+          setTimeout(showPinSetupWizard,800);
+        }
       }
     }catch(e){console.error('Load error:',e);}
 
     // Listen for update notifications from main process
-    LD.onUpdate((newVersion) => {
-      showUpdateBanner(newVersion);
+    LD.onUpdate((newVersion)=>showUpdateBanner(newVersion));
+
+    // Emergency keyboard shortcut — Ctrl+Shift+P opens PIN gate
+    LD.onEmergencyPin&&LD.onEmergencyPin(()=>{
+      if(!document.getElementById('pin-gate')?.classList.contains('open')){
+        openPinGate();
+        toast('Emergency override activated','t-w');
+      }
     });
 
-    setInterval(persistAll,120000);
+    // Child switch from remote or another source
+    LD.onChildSwitched&&LD.onChildSwitched(async(childId)=>{
+      const saved=await LD.loadData();
+      if(saved){
+        appData=saved;
+        Object.keys(MODES).forEach(k=>{ if(k!=='locked') delete MODES[k]; });
+        const child=(saved.children||[]).find(c=>c.id===childId);
+        if(child&&child.modes) Object.assign(MODES,child.modes);
+        if(child) currentMode=child.currentMode||'locked';
+        renderLauncher(currentMode);
+        showScreen(currentMode==='locked'?'locked':'launcher');
+        toast('👶 Switched to '+((child&&child.name)||'child'),'t-i');
+      }
+    });
+
+    // Usage/time limit events
+    LD.onUsageReset&&LD.onUsageReset(()=>{ usageToday={}; updateUsageDisplay(); });
+    LD.onLimitReached&&LD.onLimitReached((mode)=>{ exitSession(); showTimeLimitReached(mode); });
+    LD.onAppClosed&&LD.onAppClosed(()=>{ exitSession(); toast('App closed','t-i'); });
+
+    // Remote control events (from phone app via REST API)
+    LD.onRemoteMode&&LD.onRemoteMode((mode)=>{
+      if(MODES[mode]){ doFinishSwitch(mode); toast('📱 Remote: switched to '+MODES[mode].label,'t-i'); }
+    });
+    LD.onRemoteBlocking&&LD.onRemoteBlocking((enabled)=>{
+      if(appData) appData.blockingEnabled=enabled;
+      toast('📱 Remote: blocking '+(enabled?'ON':'OFF'),'t-i');
+    });
+    LD.onRemoteLimits&&LD.onRemoteLimits((limits)=>{
+      if(appData) appData.timeLimits=limits;
+      toast('📱 Remote: time limits updated','t-i');
+    });
+
+    // Load usage data on startup
+    LD.getUsage&&LD.getUsage().then(u=>{ if(u){ usageToday=u.today||{}; timeLimits=u.limits||{}; } updateUsageDisplay(); });
+
+    // Listen for schedule-driven mode changes from main process
+    // Also send current time to main to check immediately on startup
+    if(LD.isElectron) setTimeout(()=>{ LD.checkScheduleNow&&LD.checkScheduleNow(); }, 5000);
+    // 5-minute warning before scheduled mode switch
+    LD.onScheduleWarning&&LD.onScheduleWarning((data)=>{
+      showScheduleWarning(data.label, data.minutesLeft);
+    });
+
+    LD.onScheduleChange&&LD.onScheduleChange((newMode)=>{
+      if(newMode&&MODES[newMode]&&newMode!==currentMode){
+        toast('📅 Schedule: switching to '+MODES[newMode].label,'t-i');
+        setTimeout(()=>doFinishSwitch(newMode),3000);
+      }
+    });
+
+    if(LD.isElectron)setInterval(persistAll,120000);
   }
   renderLauncher(currentMode);
   showScreen(currentMode==='locked'?'locked':'launcher');

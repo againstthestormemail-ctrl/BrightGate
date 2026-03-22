@@ -1,16 +1,27 @@
 /**
  * BrightGate — main.js
  * Electron main process
- * v1.2 — adds process monitor + locked webview browser
+ * v1.6.0
  */
 
 const { app, BrowserWindow, ipcMain, globalShortcut, dialog, shell, session } = require('electron');
 const path = require('path');
 const fs = require('fs');
+const os = require('os');
 const { execSync, exec } = require('child_process');
 const { checkAndUpdate } = require('./updater');
 
-const CURRENT_VERSION = '1.2.0';
+function getLocalIP() {
+  const nets = os.networkInterfaces();
+  for (const name of Object.keys(nets)) {
+    for (const net of nets[name]) {
+      if (net.family === 'IPv4' && !net.internal) return net.address;
+    }
+  }
+  return '127.0.0.1';
+}
+
+const CURRENT_VERSION = '1.6.0';
 
 // ─── DATA ─────────────────────────────────────────────────────────────────────
 const userDataPath = app.getPath('userData');
@@ -18,7 +29,10 @@ const dataFile = path.join(userDataPath, 'brightgate-data.json');
 
 function loadData() {
   try {
-    if (fs.existsSync(dataFile)) return JSON.parse(fs.readFileSync(dataFile, 'utf8'));
+    if (fs.existsSync(dataFile)) {
+      const raw = JSON.parse(fs.readFileSync(dataFile, 'utf8'));
+      return migrateDataIfNeeded(raw);
+    }
   } catch(e) { console.error('Load failed:', e); }
   return getDefaultData();
 }
@@ -31,50 +45,65 @@ function saveData(data) {
   } catch(e) { console.error('Save failed:', e); return false; }
 }
 
-function getDefaultData() {
+function getDefaultChildProfile(name = 'Child', avatar = '🧒') {
   return {
-    pin: '1234',
-    currentMode: 'learning',
+    id: 'child_' + Date.now() + '_' + Math.random().toString(36).slice(2,7),
+    name,
+    avatar,
+    currentMode: 'locked',
     modes: {
-      learning: {
-        label: 'LEARNING', tagline: 'Explore. Learn. Build.', color: '#00c8ff',
-        tiles: [
-          { icon: '🧮', label: 'Math Trainer', c: '#00c8ff' },
-          { icon: '🌐', label: 'Khan Academy', c: '#00c8ff', url: 'khanacademy.org' },
-          { icon: '📖', label: 'Reading Lab', c: '#42d4f5' },
-          { icon: '🔬', label: 'Science Videos', c: '#42d4f5' },
-          { icon: '✏️', label: 'Writing Tools', c: '#00c8ff' },
-          { icon: '🗺️', label: 'Geography Quiz', c: '#5cbcf5' }
-        ],
-        apps: [], urls: []
-      },
-      funtime: {
-        label: 'FUN TIME', tagline: 'Play. Create. Explore.', color: '#ff60b0',
-        tiles: [
-          { icon: '🎮', label: 'Minecraft', c: '#ff60b0' },
-          { icon: '🎨', label: 'Paint Studio', c: '#b060ff' },
-          { icon: '🎵', label: 'Music Maker', c: '#ff60b0' },
-          { icon: '🦖', label: 'Dino Game', c: '#ff9040' },
-          { icon: '🧩', label: 'Puzzle World', c: '#b060ff' }
-        ],
-        apps: [], urls: []
-      },
-      watchtime: {
-        label: 'WATCH TIME', tagline: 'Relax. Watch. Enjoy.', color: '#b060ff',
-        tiles: [
-          { icon: '▶️', label: 'YouTube Kids', c: '#b060ff', url: 'youtube.com/kids' },
-          { icon: '🎬', label: 'Movie Club', c: '#b060ff' },
-          { icon: '🌿', label: 'Nature Docs', c: '#6b42f5' }
-        ],
-        apps: [], urls: []
-      },
-      locked: { label: 'LOCKED', tagline: '', color: '#ff3d5a', tiles: [], apps: [], urls: [] }
+      locked: { label: 'LOCKED', tagline: '', color: '#ff3d5a', tiles: [], apps: [], urls: [], urlConfigs: [] }
     },
     schedule: Array(7).fill(null).map(() => ({})),
+    timeLimits: {},
+    usageToday: {},
+    usageDate: null
+  };
+}
+
+function getDefaultData() {
+  const defaultChild = getDefaultChildProfile('My Child', '🧒');
+  return {
+    // Global settings
+    pin: null,
+    pinSet: false,
     kioskMode: false,
     blockingEnabled: true,
-    startWithWindows: false
+    startWithWindows: false,
+    urlSettings: { blockAds: true, globalBlockedKeys: [] },
+    // Multi-child
+    children: [defaultChild],
+    activeChildId: defaultChild.id,
+    // Legacy flat fields (kept for backwards compat — migrated on load)
+    activityLog: [],
+    appScanCache: null
   };
+}
+
+// ── Migration: convert old flat data to multi-child structure ──
+function migrateDataIfNeeded(data) {
+  if (data.children && data.children.length > 0 && data.activeChildId) return data; // Already migrated
+  console.log('[BrightGate] Migrating data to multi-child structure...');
+  const child = getDefaultChildProfile('My Child', '🧒');
+  // Copy existing child-specific fields into the first child profile
+  if (data.modes) child.modes = data.modes;
+  if (data.schedule) child.schedule = data.schedule;
+  if (data.timeLimits) child.timeLimits = data.timeLimits;
+  if (data.usageToday) child.usageToday = data.usageToday;
+  if (data.usageDate) child.usageDate = data.usageDate;
+  if (data.currentMode) child.currentMode = data.currentMode;
+  data.children = [child];
+  data.activeChildId = child.id;
+  // Keep global fields
+  if (!data.activityLog) data.activityLog = [];
+  if (!data.appScanCache) data.appScanCache = null;
+  return data;
+}
+
+// ── Helper: get active child profile ──
+function activeChild() {
+  if (!appData || !appData.children) return null;
+  return appData.children.find(c => c.id === appData.activeChildId) || appData.children[0];
 }
 
 // ─── ALWAYS-BLOCKED PROCESSES ─────────────────────────────────────────────────
@@ -92,29 +121,36 @@ let appData = loadData();
 let isMonitoring = false;
 
 function getAllowedExes() {
-  if (!appData || !appData.currentMode) return [];
-  const mode = appData.modes[appData.currentMode];
+  const child = activeChild();
+  if (!child || !child.currentMode) return [];
+  const mode = child.modes[child.currentMode];
   if (!mode || !mode.apps) return [];
-  // Extract exe names from app entries
   return mode.apps
     .filter(a => a.execPath || a.exeName)
-    .map(a => {
-      const p = a.execPath || a.exeName || '';
-      return path.basename(p).toLowerCase();
-    });
+    .map(a => path.basename(a.execPath || a.exeName || '').toLowerCase());
 }
+
+// Track the currently active session exe so monitor doesn't kill it
+let activeSessionExe = null;
+
+ipcMain.handle('session:setActive', (e, exePath) => {
+  activeSessionExe = exePath ? path.basename(exePath).toLowerCase() : null;
+});
 
 function isProcessAllowed(exeName) {
   const name = exeName.toLowerCase().trim();
   // Always allow BrightGate's own processes
   if (name.includes('electron') || name.includes('brightgate') ||
       name === 'node.exe' || name === 'npm.cmd') return true;
+  // Always allow the currently active session app
+  if (activeSessionExe && name === activeSessionExe) return true;
   // Always block dangerous processes
   if (ALWAYS_BLOCKED.includes(name)) return false;
   // If blocking disabled, allow everything else
   if (!appData.blockingEnabled) return true;
   // If mode is locked, block everything not BrightGate
-  if (appData.currentMode === 'locked') return false;
+  const child = activeChild();
+  if (!child || child.currentMode === 'locked') return false;
   // Check against current mode's allowed apps
   const allowed = getAllowedExes();
   return allowed.includes(name);
@@ -315,11 +351,11 @@ function openLockedBrowser(tileLabel, startUrl, urlConfigs) {
     title: tileLabel + ' — BrightGate',
     webPreferences: {
       nodeIntegration: false,
-      contextIsolation: false, // Must be false for webview tag to work properly
+      contextIsolation: true,  // Restored — webview tag works with contextIsolation:true in Electron 28+
       sandbox: false,
       webviewTag: true,        // Required for <webview> tag
       devTools: false,
-      webSecurity: false,      // Allow cross-origin in webview (sites need this)
+      webSecurity: false,      // Allow cross-origin in webview (sites need this to load properly)
       allowRunningInsecureContent: true
     }
   });
@@ -369,6 +405,7 @@ function createWindow() {
       nodeIntegration: false,
       contextIsolation: true,
       sandbox: false,
+      webviewTag: true,
       devTools: !appData.kioskMode
     }
   });
@@ -380,6 +417,7 @@ function createWindow() {
     mainWindow.show();
     // Always block escape shortcuts — even outside kiosk mode
     registerAlwaysBlockedShortcuts();
+    registerEmergencyShortcut();
     if (appData.kioskMode) registerKioskShortcuts();
     if (appData.blockingEnabled) startMonitor();
 
@@ -393,13 +431,14 @@ function createWindow() {
     }, 3000);
   });
 
-  // Always refocus — prevents Alt+Tab from leaving the app
+  // Refocus — only when parent panel is NOT open (prevents closing overlays)
   mainWindow.on('blur', () => {
+    if (parentPanelOpen) return; // Parent is using controls — don't steal focus
     setTimeout(() => {
       if (mainWindow && !mainWindow.isDestroyed() && !mainWindow.webContents.isDevToolsFocused()) {
         mainWindow.focus();
       }
-    }, 100);
+    }, 150);
   });
 
   mainWindow.on('minimize', () => mainWindow.restore());
@@ -422,20 +461,305 @@ function registerAlwaysBlockedShortcuts() {
     .forEach(k => { try { globalShortcut.register(k, () => {}); } catch(e) {} });
 }
 
+// Emergency parent override — Ctrl+Shift+P summons PIN gate from anywhere
+function registerEmergencyShortcut() {
+  try {
+    globalShortcut.register('CommandOrControl+Shift+P', () => {
+      if (mainWindow && !mainWindow.isDestroyed()) {
+        mainWindow.focus();
+        mainWindow.webContents.send('emergency:pinGate');
+      }
+    });
+    console.log('[BrightGate] Emergency shortcut registered: Ctrl+Shift+P');
+  } catch(e) {
+    console.warn('[BrightGate] Could not register emergency shortcut:', e.message);
+  }
+}
+
+// ─── SCHEDULE ENFORCEMENT ────────────────────────────────────────────────────
+function checkSchedule() {
+  const child = activeChild();
+  if (!child || !child.schedule || !child.modes) return;
+  const now = new Date();
+  const dayIdx = (now.getDay() + 6) % 7;
+  const hour = now.getHours();
+  const minute = now.getMinutes();
+  const daySchedule = child.schedule[dayIdx];
+  if (!daySchedule) return;
+
+  const scheduledMode = daySchedule[hour];
+  if (scheduledMode && scheduledMode !== child.currentMode && child.modes[scheduledMode]) {
+    child.currentMode = scheduledMode;
+    saveData(appData);
+    if (mainWindow && !mainWindow.isDestroyed()) {
+      mainWindow.webContents.send('schedule:modeChange', scheduledMode);
+    }
+    if (restServer?._push) restServer._push('scheduledModeChange', {
+      mode: scheduledMode,
+      label: child.modes[scheduledMode]?.label,
+      child: { name: child.name, avatar: child.avatar }
+    });
+  }
+
+  if (minute === 55) {
+    const nextHour = (hour + 1) % 24;
+    const upcomingMode = daySchedule[nextHour];
+    if (upcomingMode && upcomingMode !== child.currentMode && child.modes[upcomingMode]) {
+      if (mainWindow && !mainWindow.isDestroyed()) {
+        mainWindow.webContents.send('schedule:warning', {
+          mode: upcomingMode,
+          label: child.modes[upcomingMode].label,
+          minutesLeft: 5
+        });
+      }
+    }
+  }
+}
+
 // ─── LIFECYCLE ────────────────────────────────────────────────────────────────
 app.whenReady().then(() => {
   createWindow();
+  startRestApi();
+  setInterval(checkSchedule, 60000);
+  setInterval(checkUsageReset, 60000); // Check midnight reset every minute
   app.on('activate', () => { if (BrowserWindow.getAllWindows().length === 0) createWindow(); });
 });
 app.on('window-all-closed', () => { stopMonitor(); globalShortcut.unregisterAll(); if (process.platform !== 'darwin') app.quit(); });
-app.on('will-quit', () => { stopMonitor(); globalShortcut.unregisterAll(); });
+app.on('will-quit', () => {
+  stopMonitor();
+  globalShortcut.unregisterAll();
+  if (restServer) { try { restServer.close(); } catch(e) {} }
+});
+
+// ─── LOCAL REST API ───────────────────────────────────────────────────────────
+// Listens on localhost:7743 for PIN-authenticated remote control commands.
+// This is the foundation for the phone app remote control feature.
+const http = require('http');
+
+let restServer = null;
+
+function startRestApi() {
+  if (restServer) return;
+  // SSE clients for push notifications
+  const sseClients = new Set();
+
+  function pushNotification(event, data) {
+    const msg = `event: ${event}\ndata: ${JSON.stringify(data)}\n\n`;
+    for (const client of sseClients) {
+      try { client.write(msg); } catch(e) { sseClients.delete(client); }
+    }
+  }
+
+  restServer = http.createServer((req, res) => {
+    res.setHeader('Access-Control-Allow-Origin', '*');
+    res.setHeader('Access-Control-Allow-Methods', 'GET, POST, OPTIONS');
+    res.setHeader('Access-Control-Allow-Headers', 'Content-Type, X-BrightGate-PIN');
+
+    if (req.method === 'OPTIONS') { res.writeHead(200); res.end(); return; }
+
+    // Serve the phone web app (no auth needed for the HTML shell)
+    if (req.method === 'GET' && (req.url === '/' || req.url === '/remote')) {
+      const appHtml = path.join(__dirname, 'src', 'remote.html');
+      try {
+        const html = fs.readFileSync(appHtml, 'utf8');
+        res.setHeader('Content-Type', 'text/html');
+        res.writeHead(200);
+        res.end(html);
+        return;
+      } catch(e) {
+        res.setHeader('Content-Type', 'text/plain');
+        res.writeHead(404);
+        res.end('remote.html not found');
+        return;
+      }
+    }
+
+    // All API endpoints require PIN auth
+    res.setHeader('Content-Type', 'application/json');
+    const pin = req.headers['x-brightgate-pin'];
+    if (!pin || pin !== appData.pin) {
+      res.writeHead(401);
+      res.end(JSON.stringify({ error: 'Invalid PIN' }));
+      return;
+    }
+
+    let body = '';
+    req.on('data', chunk => { body += chunk; });
+    req.on('end', () => {
+      try {
+        const parsed = body ? JSON.parse(body) : {};
+        handleRestRequest(req.method, req.url, parsed, res);
+      } catch(e) {
+        res.writeHead(400);
+        res.end(JSON.stringify({ error: 'Invalid JSON' }));
+      }
+    });
+  });
+
+  // Attach helpers after server is created
+  restServer._sseClients = sseClients;
+  restServer._push = pushNotification;
+
+  restServer.listen(7743, '127.0.0.1', () => {
+    console.log('[BrightGate] REST API listening on localhost:7743');
+  });
+
+  restServer.on('error', (e) => {
+    console.error('[BrightGate] REST API error:', e.message);
+  });
+}
+
+function handleRestRequest(method, url, body, res) {
+  const send = (code, data) => { res.writeHead(code); res.end(JSON.stringify(data)); };
+
+  // GET /status — current state
+  if (method === 'GET' && url === '/status') {
+    const child = activeChild();
+    const modes = child ? child.modes || {} : {};
+    send(200, {
+      activeChild: child ? { id: child.id, name: child.name, avatar: child.avatar } : null,
+      children: (appData.children || []).map(c => ({ id: c.id, name: c.name, avatar: c.avatar })),
+      currentMode: child ? child.currentMode : 'locked',
+      modes: Object.keys(modes).map(k => ({
+        key: k,
+        label: modes[k].label,
+        color: modes[k].color,
+        icon: modes[k].icon || '🎯',
+        tileCount: (modes[k].tiles || []).length
+      })),
+      blocking: appData.blockingEnabled,
+      kiosk: appData.kioskMode,
+      timeLimits: child ? child.timeLimits || {} : {},
+      usageToday: child ? child.usageToday || {} : {},
+      version: CURRENT_VERSION
+    });
+    return;
+  }
+
+  // GET /activity — recent activity log
+  if (method === 'GET' && url === '/activity') {
+    const child = activeChild();
+    const log = (child?.activityLog || appData.activityLog || []).slice(0, 50);
+    send(200, { log, child: child ? { name: child.name, avatar: child.avatar } : null });
+    return;
+  }
+
+  // POST /mode — switch mode
+  if (method === 'POST' && url === '/mode') {
+    const { mode, childId } = body;
+    // Optionally switch active child first
+    if (childId) {
+      const c = (appData.children||[]).find(x=>x.id===childId);
+      if (c) appData.activeChildId = childId;
+    }
+    const child = activeChild();
+    if (!mode || !child || !child.modes[mode]) { send(404, { error: 'Mode not found' }); return; }
+    child.currentMode = mode;
+    saveData(appData);
+    if (mainWindow && !mainWindow.isDestroyed()) {
+      mainWindow.webContents.send('remote:modeChange', mode);
+    }
+    if (restServer?._push) restServer._push('modeChanged', { mode, label: child?.modes[mode]?.label });
+    send(200, { ok: true, mode });
+    return;
+  }
+
+  // POST /lock — switch to locked mode
+  if (method === 'POST' && url === '/lock') {
+    const child = activeChild();
+    if (child) child.currentMode = 'locked';
+    saveData(appData);
+    if (mainWindow && !mainWindow.isDestroyed()) {
+      mainWindow.webContents.send('remote:modeChange', 'locked');
+    }
+    send(200, { ok: true, mode: 'locked' });
+    return;
+  }
+
+  // POST /blocking — toggle process blocking
+  if (method === 'POST' && url === '/blocking') {
+    const { enabled } = body;
+    appData.blockingEnabled = !!enabled;
+    saveData(appData);
+    if (appData.blockingEnabled) startMonitor(); else stopMonitor();
+    if (mainWindow && !mainWindow.isDestroyed()) {
+      mainWindow.webContents.send('remote:blockingChange', appData.blockingEnabled);
+    }
+    send(200, { ok: true, blocking: appData.blockingEnabled });
+    return;
+  }
+
+  // POST /timelimit — set daily time limit for a mode
+  if (method === 'POST' && url === '/timelimit') {
+    const { mode, minutes } = body;
+    if (!mode || typeof minutes !== 'number') { send(400, { error: 'mode and minutes required' }); return; }
+    if (!appData.timeLimits) appData.timeLimits = {};
+    if (minutes <= 0) delete appData.timeLimits[mode];
+    else appData.timeLimits[mode] = Math.round(minutes);
+    saveData(appData);
+    if (mainWindow && !mainWindow.isDestroyed()) {
+      mainWindow.webContents.send('remote:timeLimitsChange', appData.timeLimits);
+    }
+    send(200, { ok: true, timeLimits: appData.timeLimits });
+    return;
+  }
+
+  if (method === 'GET' && url === '/ping') { send(200, { ok: true, version: CURRENT_VERSION }); return; }
+
+  // GET /events — SSE stream for push notifications
+  if (method === 'GET' && url.startsWith('/events')) {
+    // SSE auth via query param (EventSource API can't send custom headers)
+    const urlObj = new URL('http://localhost' + url);
+    const tokenPin = urlObj.searchParams.get('pin');
+    if (!tokenPin || tokenPin !== appData.pin) {
+      res.writeHead(401, { 'Content-Type': 'text/plain' });
+      res.end('Unauthorized');
+      return;
+    }
+    res.writeHead(200, {
+      'Content-Type': 'text/event-stream',
+      'Cache-Control': 'no-cache',
+      'Connection': 'keep-alive',
+      'Access-Control-Allow-Origin': '*'
+    });
+    res.write('event: connected\ndata: {"ok":true}\n\n');
+    const sseClients = restServer._sseClients;
+    if (sseClients) sseClients.add(res);
+    req.on('close', () => { if(sseClients) sseClients.delete(res); });
+    return;
+  }
+
+  // POST /child/switch — switch active child
+  if (method === 'POST' && url === '/child/switch') {
+    const { childId } = body;
+    const child = (appData.children||[]).find(c=>c.id===childId);
+    if (!child) { send(404, { error: 'Child not found' }); return; }
+    appData.activeChildId = childId;
+    saveData(appData);
+    if (mainWindow && !mainWindow.isDestroyed()) {
+      mainWindow.webContents.send('child:switched', childId);
+    }
+    send(200, { ok: true, child: { id: child.id, name: child.name, avatar: child.avatar } });
+    return;
+  }
+
+  send(404, { error: 'Unknown endpoint' });
+}
 
 // ─── IPC ──────────────────────────────────────────────────────────────────────
+// Track whether parent panel is open so blur refocus is suppressed
+let parentPanelOpen = false;
+ipcMain.handle('parent:setOpen', (e, open) => { parentPanelOpen = !!open; });
+
 ipcMain.handle('data:load', () => { appData = loadData(); return appData; });
 ipcMain.handle('data:save', (e, data) => { appData = data; return saveData(data); });
-ipcMain.handle('data:setMode', (e, key) => { appData.currentMode = key; return saveData(appData); });
-ipcMain.handle('auth:verifyPin', (e, pin) => pin === appData.pin);
-ipcMain.handle('auth:setPin', (e, pin) => { appData.pin = pin; return saveData(appData); });
+ipcMain.handle('data:setMode', (e, key) => {
+  const child = activeChild();
+  if (child) child.currentMode = key;
+  return saveData(appData);
+});
+ipcMain.handle('auth:verifyPin', (e, pin) => { if(!appData.pin) return false; return pin === appData.pin; });
+ipcMain.handle('auth:setPin', (e, pin) => { appData.pin = pin; appData.pinSet = true; return saveData(appData); });
 ipcMain.handle('app:quit', () => { stopMonitor(); globalShortcut.unregisterAll(); app.quit(); });
 ipcMain.handle('app:reload', () => { if (mainWindow) mainWindow.reload(); });
 ipcMain.handle('app:version', () => CURRENT_VERSION);
@@ -452,12 +776,67 @@ ipcMain.handle('app:launch', (e, execPath) => {
   catch(err) { return { success: false, error: err.message }; }
 });
 
-// Open URL in locked browser
-ipcMain.handle('app:openUrl', (e, url, tileLabel, urlConfigs) => {
+ipcMain.handle('app:kill', (e, execPath) => {
   try {
-    openLockedBrowser(tileLabel || 'Web', url, urlConfigs || [url]);
+    // Use WMIC to find PID matching exact full path — avoids killing wrong process with same exe name
+    // Escape backslashes AND wrap in proper WMIC quotes for paths with spaces
+    const safePath = execPath.replace(/\\/g, '\\\\').replace(/'/g, "\\'");
+    const out = execSync(
+      `wmic process where "ExecutablePath='${safePath}'" get ProcessId /format:csv`,
+      { encoding: 'utf8', timeout: 5000, stdio: ['pipe','pipe','ignore'] }
+    );
+    const pids = out.split('\n')
+      .map(l => parseInt(l.split(',').pop()))
+      .filter(n => !isNaN(n) && n > 0);
+    for (const pid of pids) {
+      try { execSync(`taskkill /PID ${pid} /F /T`, { stdio: 'ignore', timeout: 3000 }); } catch(e) {}
+    }
     return { success: true };
-  } catch(err) { return { success: false, error: err.message }; }
+  } catch(err) {
+    // Fallback: kill by exe name
+    try {
+      const exeName = path.basename(execPath);
+      execSync(`taskkill /F /IM "${exeName}" /T`, { stdio: 'ignore', timeout: 3000 });
+    } catch(e) {}
+    return { success: false };
+  }
+});
+
+// app:openUrl — now handled in-window by session manager in renderer
+// This handler is kept for backwards compat but should not be called in normal flow
+ipcMain.handle('app:openUrl', (e, url, tileLabel, urlConfigs) => {
+  console.warn('[BrightGate] app:openUrl called — websites should open via in-window session manager');
+  return { success: false, reason: 'use_in_window_session' };
+});
+
+// Activity log — append entry
+ipcMain.handle('activity:log', (e, entry) => {
+  const child = activeChild();
+  const target = child || appData; // Fall back to global if no child
+  if (!target.activityLog) target.activityLog = [];
+  target.activityLog.unshift({
+    ...entry,
+    childId: child?.id,
+    childName: child?.name,
+    ts: Date.now(),
+    date: new Date().toLocaleString()
+  });
+  if (target.activityLog.length > 500) target.activityLog = target.activityLog.slice(0, 500);
+  saveData(appData);
+  return true;
+});
+
+// App scan cache — store results to avoid re-scanning every time
+ipcMain.handle('scanCache:save', (e, results) => {
+  appData.appScanCache = { results, ts: Date.now() };
+  saveData(appData);
+  return true;
+});
+ipcMain.handle('scanCache:load', () => {
+  if (!appData.appScanCache) return null;
+  // Cache valid for 24 hours
+  if (Date.now() - appData.appScanCache.ts > 86400000) return null;
+  return appData.appScanCache.results;
 });
 
 // Check if URL is allowed — returns full result object
@@ -508,6 +887,195 @@ ipcMain.handle('settings:setStartup', (e, enabled) => {
     saveData(appData);
     return { success: true };
   } catch(err) { return { success: false }; }
+});
+
+// Fire schedule check on demand (called from renderer on startup)
+ipcMain.handle('schedule:checkNow', () => { checkSchedule(); return true; });
+
+// ─── USAGE TRACKING ───────────────────────────────────────────────────────────
+
+// Midnight reset — clear daily usage if date has changed
+function checkUsageReset() {
+  const today = new Date().toISOString().slice(0, 10);
+  let changed = false;
+  for (const child of (appData.children || [])) {
+    if (child.usageDate !== today) {
+      child.usageDate = today;
+      child.usageToday = {};
+      changed = true;
+    }
+  }
+  if (changed) {
+    saveData(appData);
+    if (mainWindow && !mainWindow.isDestroyed()) {
+      mainWindow.webContents.send('usage:reset');
+    }
+    console.log('[BrightGate] Daily usage reset for', today);
+  }
+}
+
+ipcMain.handle('usage:tick', (e, modeKey, seconds) => {
+  const child = activeChild();
+  if (!child) return { limitReached: false };
+  if (!child.usageToday) child.usageToday = {};
+  child.usageToday[modeKey] = (child.usageToday[modeKey] || 0) + seconds;
+  const limitMins = child.timeLimits?.[modeKey];
+  if (limitMins && child.usageToday[modeKey] >= limitMins * 60) {
+    child.currentMode = 'locked';
+    saveData(appData);
+    if (mainWindow && !mainWindow.isDestroyed()) {
+      mainWindow.webContents.send('usage:limitReached', modeKey);
+    }
+    if (restServer?._push) restServer._push('timeLimitReached', {
+      mode: modeKey,
+      child: child ? { name: child.name, avatar: child.avatar } : null
+    });
+    return { limitReached: true };
+  }
+  if (child.usageToday[modeKey] % 30 === 0) saveData(appData);
+  return { limitReached: false, used: child.usageToday[modeKey] };
+});
+
+ipcMain.handle('usage:get', () => {
+  const child = activeChild();
+  return {
+    today: child?.usageToday || {},
+    limits: child?.timeLimits || {},
+    date: child?.usageDate || null
+  };
+});
+
+ipcMain.handle('timelimit:set', (e, modeKey, minutes) => {
+  const child = activeChild();
+  if (!child) return false;
+  if (!child.timeLimits) child.timeLimits = {};
+  if (!minutes || minutes <= 0) delete child.timeLimits[modeKey];
+  else child.timeLimits[modeKey] = Math.round(minutes);
+  return saveData(appData);
+});
+
+// ─── APP EXIT DETECTION ───────────────────────────────────────────────────────
+// Poll for the active session app process — if it disappears, auto-exit the session
+
+let appWatchInterval = null;
+let watchingExePath = null;
+
+ipcMain.handle('appwatch:start', (e, exePath) => {
+  watchingExePath = exePath;
+  if (appWatchInterval) clearInterval(appWatchInterval);
+  appWatchInterval = setInterval(() => {
+    if (!watchingExePath) { clearInterval(appWatchInterval); return; }
+    try {
+      const exeName = path.basename(watchingExePath).replace(/'/g, '');
+      const out = execSync(
+        `tasklist /FI "IMAGENAME eq ${exeName}" /FO CSV /NH`,
+        { encoding: 'utf8', timeout: 3000, stdio: ['pipe','pipe','ignore'] }
+      ).trim();
+      const isRunning = out.toLowerCase().includes(exeName.toLowerCase()) && !out.includes('No tasks');
+      if (!isRunning) {
+        // App closed by itself — notify renderer to exit session
+        clearInterval(appWatchInterval);
+        appWatchInterval = null;
+        watchingExePath = null;
+        if (mainWindow && !mainWindow.isDestroyed()) {
+          mainWindow.webContents.send('app:closedExternally');
+        }
+      }
+    } catch(e) { /* tasklist may fail occasionally */ }
+  }, 2000);
+  return true;
+});
+
+ipcMain.handle('appwatch:stop', () => {
+  if (appWatchInterval) clearInterval(appWatchInterval);
+  appWatchInterval = null;
+  watchingExePath = null;
+  return true;
+});
+
+// Time limit management IPC
+ipcMain.handle('remote:getStatus', () => ({
+  currentMode: appData.currentMode,
+  blocking: appData.blockingEnabled,
+  timeLimits: appData.timeLimits || {},
+  usageToday: appData.usageToday || {}
+}));
+
+// ─── CHILD MANAGEMENT IPC ────────────────────────────────────────────────────
+
+ipcMain.handle('child:list', () => appData.children || []);
+
+ipcMain.handle('child:add', (e, name, avatar) => {
+  const child = getDefaultChildProfile(name || 'New Child', avatar || '🧒');
+  if (!appData.children) appData.children = [];
+  appData.children.push(child);
+  saveData(appData);
+  return child;
+});
+
+ipcMain.handle('child:remove', (e, childId) => {
+  if (!appData.children || appData.children.length <= 1) {
+    return { error: 'Cannot remove the last child profile' };
+  }
+  appData.children = appData.children.filter(c => c.id !== childId);
+  if (appData.activeChildId === childId) {
+    appData.activeChildId = appData.children[0].id;
+  }
+  saveData(appData);
+  return { ok: true };
+});
+
+ipcMain.handle('child:setActive', (e, childId) => {
+  const child = (appData.children || []).find(c => c.id === childId);
+  if (!child) return { error: 'Child not found' };
+  appData.activeChildId = childId;
+  saveData(appData);
+  // Notify renderer of child switch
+  if (mainWindow && !mainWindow.isDestroyed()) {
+    mainWindow.webContents.send('child:switched', childId);
+  }
+  return { ok: true, child };
+});
+
+ipcMain.handle('child:update', (e, childId, updates) => {
+  const child = (appData.children || []).find(c => c.id === childId);
+  if (!child) return { error: 'Child not found' };
+  if (updates.name) child.name = updates.name;
+  if (updates.avatar) child.avatar = updates.avatar;
+  saveData(appData);
+  return { ok: true };
+});
+
+// Push custom notification from renderer (e.g. blocked site)
+ipcMain.handle('push:notify', (e, event, data) => {
+  if (restServer?._push) restServer._push(event, data);
+  return true;
+});
+
+// Get local IP for remote app link
+ipcMain.handle('system:localIP', () => getLocalIP());
+
+// Open mailto link to share remote URL
+ipcMain.handle('system:emailRemoteLink', () => {
+  const ip = getLocalIP();
+  const url = `http://${ip}:7743`;
+  const subject = encodeURIComponent('BrightGate Remote Control');
+  const body = encodeURIComponent(
+    `Hi,
+
+Here is the link to control BrightGate from your phone:
+
+${url}
+
+` +
+    `Make sure you are connected to the same WiFi network as the child's PC.
+` +
+    `You will need your parent PIN to log in.
+
+— BrightGate`
+  );
+  shell.openExternal(`mailto:?subject=${subject}&body=${body}`);
+  return { url };
 });
 
 // ─── APP SCANNER ──────────────────────────────────────────────────────────────
