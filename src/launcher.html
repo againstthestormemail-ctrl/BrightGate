@@ -351,117 +351,11 @@ body.session-active .bottom-bar,
 body.session-active .hud,
 body.session-active .scan-line,
 body.session-active .nebula{display:none!important}
-
-/* ═══════════════════════════════════════════════════════════════════════════
-   ONBOARDING
-   ═══════════════════════════════════════════════════════════════════════════ */
-#onboarding-overlay{position:fixed;inset:0;z-index:900;display:flex;align-items:center;justify-content:center}
-.ob-screen{position:absolute;inset:0;display:flex;align-items:center;justify-content:center;flex-direction:column;opacity:0;pointer-events:none;transition:opacity .6s ease,transform .6s ease;transform:scale(0.95)}
-.ob-screen.active{opacity:1;pointer-events:auto;transform:scale(1)}
-
-/* Screen 1 — Splash */
-.ob-splash{background:linear-gradient(135deg,#0a1830 0%,#14244a 40%,#1a3060 100%);overflow:hidden}
-.ob-splash-castle{position:absolute;inset:0;background-size:cover;background-position:center;opacity:0.35}
-.ob-splash-title{font-family:'Orbitron',monospace;font-size:52px;font-weight:900;letter-spacing:8px;color:#ffcc33;text-shadow:0 0 40px rgba(255,200,50,0.6),0 0 80px rgba(255,180,0,0.3);animation:obTitleIn 1.2s ease forwards;opacity:0;z-index:2}
-@keyframes obTitleIn{0%{opacity:0;transform:translateY(30px) scale(0.9)}100%{opacity:1;transform:translateY(0) scale(1)}}
-.ob-stars{position:absolute;inset:0;pointer-events:none;z-index:1}
-.ob-star{position:absolute;width:2px;height:2px;background:#fff;border-radius:50%;animation:obStarDrift linear infinite}
-@keyframes obStarDrift{0%{transform:translateX(0);opacity:0.8}100%{transform:translateX(-100vw);opacity:0}}
-
-/* Screen 2 — Meet characters */
-.ob-meet{background:linear-gradient(160deg,#06102a,#0c1a3a)}
-.ob-char-wrap{display:flex;align-items:flex-end;gap:60px;margin-bottom:30px}
-.ob-char{display:flex;flex-direction:column;align-items:center;gap:12px}
-.ob-char-img{width:120px;height:120px;border-radius:20px;display:flex;align-items:center;justify-content:center;font-size:72px;background:rgba(0,200,255,0.06);border:2px solid rgba(0,200,255,0.15)}
-.ob-char-pixel{animation:obSlideLeft .8s ease forwards;opacity:0;transform:translateX(-80px)}
-.ob-char-byte{animation:obSlideRight .8s .3s ease forwards;opacity:0;transform:translateX(80px)}
-@keyframes obSlideLeft{to{opacity:1;transform:translateX(0)}}
-@keyframes obSlideRight{to{opacity:1;transform:translateX(0)}}
-.ob-bubble{max-width:280px;background:rgba(0,200,255,0.08);border:1px solid rgba(0,200,255,0.2);border-radius:16px 16px 16px 4px;padding:14px 18px;font-size:15px;line-height:1.6;color:var(--text);font-family:var(--fb)}
-.ob-bubble-byte{border-radius:16px 16px 4px 16px}
-.ob-btn{padding:16px 40px;border-radius:30px;border:none;background:linear-gradient(135deg,#00a040,#00d060);color:#fff;font-family:var(--fd);font-size:14px;font-weight:700;letter-spacing:2px;cursor:pointer;transition:all .25s;box-shadow:0 4px 24px rgba(0,200,80,0.3)}
-.ob-btn:hover{transform:translateY(-2px);box-shadow:0 8px 32px rgba(0,200,80,0.4)}
-.ob-skip{position:absolute;bottom:28px;right:36px;font-size:13px;color:var(--muted);cursor:pointer;font-family:var(--fm);border:none;background:none;transition:color .2s}
-.ob-skip:hover{color:var(--text)}
-
-/* Screen 3 — PIN Setup */
-.ob-pin{background:linear-gradient(160deg,#06102a,#0c1a3a)}
-.ob-pin-box{display:flex;flex-direction:column;align-items:center;gap:18px;max-width:420px;text-align:center}
-.ob-pin-icon{font-size:64px;margin-bottom:8px}
-.ob-pin-title{font-family:var(--fd);font-size:16px;letter-spacing:3px;color:var(--amber)}
-.ob-pin-desc{font-size:15px;color:var(--text);line-height:1.7;max-width:340px}
-.ob-numpad{display:grid;grid-template-columns:repeat(3,80px);gap:10px;justify-content:center}
-.ob-numpad-btn{height:64px;border-radius:14px;border:1px solid rgba(255,184,0,0.2);background:rgba(255,184,0,0.06);color:var(--text);font-family:var(--fd);font-size:22px;cursor:pointer;transition:all .15s}
-.ob-numpad-btn:hover{background:rgba(255,184,0,0.15);border-color:rgba(255,184,0,0.4)}
-.ob-numpad-btn:active{transform:scale(0.92)}
-.ob-pin-dots{display:flex;gap:16px;margin:8px 0}
-.ob-pin-dot{width:18px;height:18px;border-radius:50%;border:2px solid rgba(255,184,0,0.3);transition:all .15s}
-.ob-pin-dot.filled{background:var(--amber);border-color:var(--amber);box-shadow:0 0 12px rgba(255,184,0,0.4)}
-.ob-pin-err{font-size:12px;color:var(--red);font-family:var(--fm);min-height:18px}
-.ob-name-input{width:280px;padding:14px 18px;border-radius:12px;border:1px solid rgba(0,200,255,0.2);background:rgba(0,200,255,0.05);color:var(--text);font-family:var(--fb);font-size:16px;text-align:center;outline:none}
-.ob-name-input:focus{border-color:rgba(0,200,255,0.4);box-shadow:0 0 16px rgba(0,200,255,0.15)}
-.ob-name-input::placeholder{color:var(--muted)}
-
-/* Screen 4 — Quick Tour */
-.ob-tour{background:linear-gradient(160deg,#06102a,#0c1a3a)}
-.ob-tour-panels{display:flex;gap:0;overflow:hidden;width:720px;border-radius:16px;border:1px solid var(--border)}
-.ob-tour-panel{min-width:720px;padding:48px 40px;display:flex;flex-direction:column;align-items:center;gap:18px;text-align:center;transition:transform .4s ease}
-.ob-tour-panel-icon{font-size:56px}
-.ob-tour-panel-title{font-family:var(--fd);font-size:14px;letter-spacing:3px;color:var(--cyan)}
-.ob-tour-panel-desc{font-size:15px;color:var(--text);line-height:1.7;max-width:400px}
-.ob-tour-dots{display:flex;gap:10px;margin-top:12px}
-.ob-tour-dot{width:10px;height:10px;border-radius:50%;background:rgba(255,255,255,0.15);cursor:pointer;transition:all .2s}
-.ob-tour-dot.active{background:var(--cyan);box-shadow:0 0 8px var(--cyan)}
-.ob-tour-nav{display:flex;gap:16px;margin-top:8px}
-
-/* ═══════════════════════════════════════════════════════════════════════════
-   PIXEL CORNER BOX
-   ═══════════════════════════════════════════════════════════════════════════ */
-#pixel-corner{position:fixed;bottom:16px;left:16px;z-index:8;display:flex;align-items:flex-end;gap:8px;cursor:pointer;transition:transform .2s}
-#pixel-corner:hover{transform:scale(1.06)}
-#pixel-corner:active{transform:scale(0.96)}
-.pixel-cat-wrap{width:64px;height:64px;position:relative}
-.pixel-cat-wrap svg{width:100%;height:100%}
-.pixel-cat-tail{transform-origin:bottom center;animation:tailFlick 4s ease infinite}
-@keyframes tailFlick{0%,90%,100%{transform:rotate(0)}93%{transform:rotate(8deg)}96%{transform:rotate(-5deg)}}
-.pixel-world-label{font-family:var(--fd);font-size:9px;letter-spacing:2px;color:var(--amber);text-shadow:0 0 8px rgba(255,184,0,0.3);white-space:nowrap;max-width:100px;overflow:hidden;text-overflow:ellipsis;text-align:center;padding:3px 8px;background:rgba(4,8,15,0.7);border:1px solid rgba(255,184,0,0.2);border-radius:8px;backdrop-filter:blur(8px)}
-body.session-active #pixel-corner{display:none!important}
-
-/* ═══════════════════════════════════════════════════════════════════════════
-   WORLD SELECTOR
-   ═══════════════════════════════════════════════════════════════════════════ */
-#world-selector{position:fixed;inset:0;z-index:700;background:rgba(4,8,15,0.96);backdrop-filter:blur(12px);display:flex;flex-direction:column;align-items:center;opacity:0;pointer-events:none;transition:opacity .35s;overflow-y:auto;padding:40px 20px 60px}
-#world-selector.open{opacity:1;pointer-events:auto}
-.ws-title{font-family:var(--fd);font-size:16px;letter-spacing:4px;color:var(--cyan);margin-bottom:6px}
-.ws-sub{font-size:15px;color:var(--muted);margin-bottom:28px;font-family:var(--fb)}
-.ws-grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(260px,1fr));gap:16px;max-width:900px;width:100%}
-.ws-card{border-radius:16px;border:1px solid var(--border);background:linear-gradient(160deg,rgba(16,25,40,0.9),rgba(8,14,26,0.95));overflow:hidden;cursor:pointer;transition:all .25s;position:relative}
-.ws-card:hover{transform:translateY(-4px);border-color:rgba(0,200,255,0.4);box-shadow:0 8px 32px rgba(0,0,0,0.4)}
-.ws-card.selected{border-color:var(--amber);box-shadow:0 0 24px rgba(255,184,0,0.2)}
-.ws-card-scene{height:120px;overflow:hidden;position:relative}
-.ws-card-scene svg{width:100%;height:100%}
-.ws-card-info{padding:12px 14px;display:flex;align-items:center;justify-content:space-between}
-.ws-card-name{font-family:var(--fd);font-size:11px;letter-spacing:2px;color:var(--text)}
-.ws-card-chars{font-size:11px;color:var(--muted);font-family:var(--fm)}
-.ws-card-check{width:22px;height:22px;border-radius:50%;border:2px solid rgba(255,184,0,0.3);display:flex;align-items:center;justify-content:center;font-size:12px;color:var(--amber);transition:all .2s}
-.ws-card.selected .ws-card-check{background:var(--amber);border-color:var(--amber);color:#000}
-.ws-close{position:fixed;top:20px;right:24px;width:40px;height:40px;border-radius:50%;border:1px solid var(--border);background:rgba(0,0,0,0.3);color:var(--muted);font-size:18px;cursor:pointer;display:flex;align-items:center;justify-content:center;z-index:710;transition:all .2s}
-.ws-close:hover{border-color:var(--cyan);color:var(--text)}
-
-/* ═══════════════════════════════════════════════════════════════════════════
-   WORLD BACKGROUND THEME
-   ═══════════════════════════════════════════════════════════════════════════ */
-.world-bg{position:fixed;inset:0;z-index:0;pointer-events:none;transition:opacity .6s ease}
-.world-bg svg{width:100%;height:100%;object-fit:cover}
-body.world-active .stars,body.world-active .nebula{opacity:0.15}
-body.world-active .top-bar{background:rgba(4,8,15,0.82)}
-body.world-active .bottom-bar{background:rgba(4,8,15,0.82)}
 </style>
 </head>
 <body>
 
 <div class="stars" id="stars"></div>
-<div class="world-bg" id="world-bg"></div>
 <div class="nebula" style="width:600px;height:600px;top:-200px;left:-150px;background:rgba(0,80,180,0.07)"></div>
 <div class="nebula" style="width:500px;height:500px;bottom:-100px;right:-100px;background:rgba(80,0,160,0.07);animation-direction:alternate-reverse"></div>
 <div class="hud tl"></div><div class="hud tr"></div><div class="hud bl"></div><div class="hud br"></div>
@@ -524,20 +418,6 @@ body.world-active .bottom-bar{background:rgba(4,8,15,0.82)}
     </div>
     <div style="font-family:var(--fm);font-size:11px;color:rgba(255,255,255,0.12)">BRIGHTGATE v1.0</div>
   </div>
-</div>
-
-<!-- PIXEL CORNER BOX -->
-<div id="pixel-corner" onclick="openWorldSelector()" title="Choose a world!">
-  <div class="pixel-cat-wrap" id="pixel-cat-svg"></div>
-  <div class="pixel-world-label" id="pixel-world-label">Space Station</div>
-</div>
-
-<!-- WORLD SELECTOR -->
-<div id="world-selector">
-  <button class="ws-close" onclick="closeWorldSelector()">✕</button>
-  <div class="ws-title">WHERE ARE WE GOING TODAY?</div>
-  <div class="ws-sub">Pick a world for Pixel to explore</div>
-  <div class="ws-grid" id="ws-grid"></div>
 </div>
 
 <!-- LOCKED -->
@@ -689,72 +569,6 @@ body.world-active .bottom-bar{background:rgba(4,8,15,0.82)}
     <div class="tut-body" id="tut-body"></div>
     <div class="tut-tip" id="tut-tip"></div>
     <button class="tut-btn" onclick="closeOverlay('tutorial')">GOT IT →</button>
-  </div>
-</div>
-
-<!-- ONBOARDING OVERLAY (first run only) -->
-<div id="onboarding-overlay" style="display:none">
-  <!-- Screen 1: Splash -->
-  <div class="ob-screen ob-splash" id="ob-splash">
-    <div class="ob-splash-castle" id="ob-castle-bg"></div>
-    <div class="ob-stars" id="ob-stars-container"></div>
-    <div class="ob-splash-title" id="ob-title-text">BRIGHTGATE</div>
-  </div>
-  <!-- Screen 2: Meet Characters -->
-  <div class="ob-screen ob-meet" id="ob-meet">
-    <div class="ob-char-wrap">
-      <div class="ob-char ob-char-pixel">
-        <div class="ob-char-img" id="ob-pixel-img">🐱</div>
-        <div class="ob-bubble">Hi! I'm <strong>Pixel</strong>. BrightGate keeps this computer safe for kids.</div>
-      </div>
-      <div class="ob-char ob-char-byte">
-        <div class="ob-char-img" id="ob-byte-img" style="background:rgba(0,255,136,0.06);border-color:rgba(0,255,136,0.15)">🤖</div>
-        <div class="ob-bubble ob-bubble-byte">And I'm <strong>Byte</strong>! Let's get set up — it only takes a minute.</div>
-      </div>
-    </div>
-    <button class="ob-btn" onclick="obGoToScreen(2)">Let's Go →</button>
-    <button class="ob-skip" onclick="obSkip()">Skip setup</button>
-  </div>
-  <!-- Screen 3: PIN Setup -->
-  <div class="ob-screen ob-pin" id="ob-pin">
-    <div class="ob-pin-box">
-      <div class="ob-pin-icon">🔑</div>
-      <div class="ob-pin-title">CHOOSE A SECRET PIN</div>
-      <div class="ob-pin-desc">Kids won't see this — you'll use it to access parent controls.</div>
-      <div class="ob-pin-dots" id="ob-pin-dots"></div>
-      <div class="ob-numpad" id="ob-numpad"></div>
-      <div class="ob-pin-err" id="ob-pin-err"></div>
-      <div id="ob-name-section" style="display:none;width:100%;flex-direction:column;align-items:center;gap:12px;margin-top:12px">
-        <div style="font-family:var(--fd);font-size:12px;letter-spacing:2px;color:var(--cyan)">WHAT'S YOUR CHILD'S NAME?</div>
-        <input class="ob-name-input" id="ob-child-name" placeholder="e.g. Emma" maxlength="20" autocomplete="off">
-        <button class="ob-btn" style="width:280px" onclick="obFinishPin()">Continue →</button>
-      </div>
-    </div>
-  </div>
-  <!-- Screen 4: Quick Tour -->
-  <div class="ob-screen ob-tour" id="ob-tour">
-    <div style="font-family:var(--fd);font-size:14px;letter-spacing:3px;color:var(--cyan);margin-bottom:20px">QUICK TOUR</div>
-    <div class="ob-tour-panels" id="ob-tour-panels-wrap">
-      <div class="ob-tour-panel" id="ob-tour-p0">
-        <div class="ob-tour-panel-icon">🎯</div>
-        <div class="ob-tour-panel-title">TAP A TILE</div>
-        <div class="ob-tour-panel-desc">Each tile opens an approved app or website. Safe and simple.</div>
-      </div>
-      <div class="ob-tour-panel" id="ob-tour-p1">
-        <div class="ob-tour-panel-icon">🏠</div>
-        <div class="ob-tour-panel-title">EXIT GATE BAR</div>
-        <div class="ob-tour-panel-desc">The bar at the bottom always brings your child back to BrightGate.</div>
-      </div>
-      <div class="ob-tour-panel" id="ob-tour-p2">
-        <div class="ob-tour-panel-icon">⚙️</div>
-        <div class="ob-tour-panel-title">PARENT BUTTON</div>
-        <div class="ob-tour-panel-desc">Tap <strong>⚙ PARENT</strong> anytime to manage modes, tiles, and settings.</div>
-      </div>
-    </div>
-    <div class="ob-tour-dots" id="ob-tour-dots"></div>
-    <div class="ob-tour-nav">
-      <button class="ob-btn" id="ob-tour-next" onclick="obTourNext()">Next →</button>
-    </div>
   </div>
 </div>
 
@@ -926,552 +740,6 @@ function toggleAppItemFiltered(filteredIdx, containerId, filter) {
 const MODE_ICONS=['🎯','📚','🎮','🎨','🔬','✏️','▶️','🎵','🏆','🧪','🚀','🌍','💡','⚽','🏕️','🎭','🎲','🐉','🦁','🌈','🎸','🎹','🎬','🧩','💻','🏃','🍕','🌺','🔭','🎃'];
 const MODE_COLORS=['#00c8ff','#ff60b0','#b060ff','#00ff88','#ffb800','#ff6040','#40ff80','#60b0ff'];
 
-/* ═══════════════════════════════════════════════════════════════════════════
-   WORLD SYSTEM DATA
-   ═══════════════════════════════════════════════════════════════════════════ */
-let activeWorld = 'space_station';
-
-const WORLDS = {
-  space_station: {
-    name: 'Space Station', characters: 'Byte + Pixel',
-    pixelOutfit: 'Astronaut', tileZone: 'Giant screen on hull',
-    palette: ['#0a1535','#142050','#1a3070','#00c8ff','#c0c0c0'],
-    skyGrad: ['#050d20','#0a1a40','#102860'],
-    shapes: 'stars', charEmoji: ['🤖','🐱']
-  },
-  deep_ocean: {
-    name: 'Deep Ocean Lab', characters: 'Eco Girl + Pixel',
-    pixelOutfit: 'Dive Suit', tileZone: 'Bioluminescent porthole',
-    palette: ['#041820','#063040','#0a4858','#00e8d0','#ffb800'],
-    skyGrad: ['#021018','#063040','#0a5060'],
-    shapes: 'bubbles', charEmoji: ['🧑‍🔬','🐱']
-  },
-  enchanted_forest: {
-    name: 'Enchanted Forest', characters: 'Wizard + Pixel',
-    pixelOutfit: 'Wizard Hat', tileZone: 'Mossy stone wall',
-    palette: ['#0a2010','#143820','#1a5030','#b060ff','#ffb800'],
-    skyGrad: ['#081810','#0f2a18','#1a4028'],
-    shapes: 'trees', charEmoji: ['🧙','🐱']
-  },
-  pirate_ship: {
-    name: 'Pirate Ship Deck', characters: 'Pirate Prof + Pixel',
-    pixelOutfit: 'Pirate Hat', tileZone: 'Open sky above deck',
-    palette: ['#1a1000','#2a1a00','#d08020','#4080c0','#ffcc00'],
-    skyGrad: ['#1a2040','#2a3060','#d08040'],
-    shapes: 'waves', charEmoji: ['🏴‍☠️','🐱']
-  },
-  science_lab: {
-    name: 'Sunny Science Lab', characters: 'Byte + Wizard',
-    pixelOutfit: 'Lab Coat', tileZone: 'Giant computer screen',
-    palette: ['#f0f4ff','#e0e8ff','#00c8ff','#88ff00','#ffdd00'],
-    skyGrad: ['#0a1830','#102848','#1a3860'],
-    shapes: 'beakers', charEmoji: ['🤖','🧙']
-  },
-  rainbow_meadow: {
-    name: 'Rainbow Meadow', characters: 'Eco Girl + Pixel',
-    pixelOutfit: 'Explorer Hat', tileZone: 'Wide open sky',
-    palette: ['#88cc44','#44aa88','#60b8ff','#ffdd44','#ff6688'],
-    skyGrad: ['#1a3050','#2a5070','#4080a0'],
-    shapes: 'flowers', charEmoji: ['🧑‍🔬','🐱']
-  },
-  crystal_cave: {
-    name: 'Crystal Cave', characters: 'All Characters',
-    pixelOutfit: 'Spelunking Helmet', tileZone: 'Glowing cave wall',
-    palette: ['#1a0030','#2a0050','#8040ff','#00e8ff','#ff40c0'],
-    skyGrad: ['#0a0020','#1a0040','#280060'],
-    shapes: 'crystals', charEmoji: ['🧑‍🔬','🐱','🤖','🧙','🏴‍☠️']
-  },
-  cloud_kingdom: {
-    name: 'Cloud Kingdom', characters: 'Pixel + Byte',
-    pixelOutfit: 'Pilot Scarf', tileZone: 'Fluffy cloud platform',
-    palette: ['#e8f0ff','#c0d8ff','#ffd0e0','#ffe8a0','#80b0ff'],
-    skyGrad: ['#1a3050','#304870','#5080b0'],
-    shapes: 'clouds', charEmoji: ['🐱','🤖']
-  },
-  ancient_library: {
-    name: 'Ancient Library', characters: 'Wizard + Pirate Prof',
-    pixelOutfit: 'Reading Glasses', tileZone: 'Warm-lit bookshelf wall',
-    palette: ['#1a1008','#2a1810','#c09040','#ffe0a0','#a03020'],
-    skyGrad: ['#0e0a04','#1a1208','#2a1c10'],
-    shapes: 'books', charEmoji: ['🧙','🏴‍☠️']
-  },
-  rooftop_garden: {
-    name: 'Rooftop Garden', characters: 'Eco Girl + Pixel',
-    pixelOutfit: 'Sun Hat', tileZone: 'Planter wall + skyline',
-    palette: ['#304828','#508040','#c06830','#ffe480','#607080'],
-    skyGrad: ['#1a2840','#2a4060','#406080'],
-    shapes: 'plants', charEmoji: ['🧑‍🔬','🐱']
-  },
-  magic_potion_lab: {
-    name: 'Magic Potion Lab', characters: 'Wizard Boy + Pixel',
-    pixelOutfit: 'Tiny Wizard Hat', tileZone: 'Cauldron workbench',
-    palette: ['#1a0830','#280c48','#40b040','#ffb800','#b060ff'],
-    skyGrad: ['#100620','#1a0a30','#280e48'],
-    shapes: 'potions', charEmoji: ['🧙‍♂️','🐱']
-  },
-  jungle_camp: {
-    name: 'Jungle Explorer Camp', characters: 'Explorer Boy + Eco Girl',
-    pixelOutfit: 'Explorer Hat', tileZone: 'Canvas expedition map',
-    palette: ['#1a3010','#2a5018','#60b020','#c08030','#40a0ff'],
-    skyGrad: ['#0a1808','#142810','#1a3818'],
-    shapes: 'leaves', charEmoji: ['🧒','🧑‍🔬']
-  }
-};
-
-const WORLD_KEYS = Object.keys(WORLDS);
-
-/* ── SVG Placeholder Generator ── */
-function generateWorldSVG(worldId, w, h) {
-  const world = WORLDS[worldId];
-  if (!world) return '';
-  const g = world.skyGrad;
-  const p = world.palette;
-
-  // Gradient background
-  let svg = `<svg viewBox="0 0 ${w} ${h}" xmlns="http://www.w3.org/2000/svg" preserveAspectRatio="xMidYMid slice">`;
-  svg += `<defs><linearGradient id="sky-${worldId}" x1="0" y1="0" x2="0" y2="1">`;
-  svg += `<stop offset="0%" stop-color="${g[0]}"/><stop offset="50%" stop-color="${g[1]}"/><stop offset="100%" stop-color="${g[2]}"/>`;
-  svg += `</linearGradient></defs>`;
-  svg += `<rect width="${w}" height="${h}" fill="url(#sky-${worldId})"/>`;
-
-  // Environment shapes
-  const shapes = world.shapes;
-  if (shapes === 'stars') {
-    for (let i = 0; i < 40; i++) {
-      const x = Math.random() * w, y = Math.random() * h * 0.7, r = 0.5 + Math.random() * 1.5;
-      svg += `<circle cx="${x}" cy="${y}" r="${r}" fill="#fff" opacity="${0.3 + Math.random() * 0.5}"/>`;
-    }
-    svg += `<ellipse cx="${w*0.15}" cy="${h*0.3}" rx="18" ry="18" fill="${p[3]}" opacity="0.15"/>`;
-    svg += `<ellipse cx="${w*0.85}" cy="${h*0.2}" rx="12" ry="12" fill="#88aaff" opacity="0.12"/>`;
-  } else if (shapes === 'bubbles') {
-    for (let i = 0; i < 25; i++) {
-      const x = Math.random() * w, y = h * 0.3 + Math.random() * h * 0.6, r = 3 + Math.random() * 12;
-      svg += `<circle cx="${x}" cy="${y}" r="${r}" fill="none" stroke="${p[3]}" stroke-width="0.5" opacity="${0.15 + Math.random() * 0.25}"/>`;
-    }
-    svg += `<ellipse cx="${w*0.5}" cy="${h*0.85}" rx="${w*0.4}" ry="20" fill="${p[2]}" opacity="0.1"/>`;
-  } else if (shapes === 'trees') {
-    for (let i = 0; i < 6; i++) {
-      const x = i < 3 ? 30 + i * 60 : w - 30 - (i - 3) * 60;
-      const th = 80 + Math.random() * 60;
-      svg += `<rect x="${x-4}" y="${h-th}" width="8" height="${th}" fill="#3a2a18" rx="3"/>`;
-      svg += `<circle cx="${x}" cy="${h-th-15}" r="${18+Math.random()*12}" fill="${p[1]}" opacity="0.7"/>`;
-      svg += `<circle cx="${x+8}" cy="${h-th-8}" r="${12+Math.random()*8}" fill="${p[2]}" opacity="0.5"/>`;
-    }
-  } else if (shapes === 'waves') {
-    for (let i = 0; i < 4; i++) {
-      const y = h - 20 - i * 15;
-      svg += `<path d="M0,${y} Q${w*0.25},${y-10} ${w*0.5},${y} Q${w*0.75},${y+10} ${w},${y}" fill="none" stroke="${p[3]}" stroke-width="1.5" opacity="${0.15 + i * 0.05}"/>`;
-    }
-    svg += `<rect x="0" y="${h-15}" width="${w}" height="15" fill="${p[3]}" opacity="0.08"/>`;
-  } else if (shapes === 'beakers') {
-    svg += `<rect x="${w*0.08}" y="${h*0.5}" width="20" height="40" rx="3" fill="${p[2]}" opacity="0.15"/>`;
-    svg += `<rect x="${w*0.88}" y="${h*0.45}" width="16" height="35" rx="3" fill="${p[3]}" opacity="0.12"/>`;
-    svg += `<circle cx="${w*0.08+10}" cy="${h*0.48}" r="6" fill="${p[3]}" opacity="0.2"/>`;
-  } else if (shapes === 'flowers') {
-    for (let i = 0; i < 12; i++) {
-      const x = Math.random() * w, y = h - 10 - Math.random() * 40;
-      const c = [p[0], p[3], p[4]][Math.floor(Math.random() * 3)];
-      svg += `<line x1="${x}" y1="${h}" x2="${x}" y2="${y}" stroke="#4a8030" stroke-width="1.5"/>`;
-      svg += `<circle cx="${x}" cy="${y}" r="${3+Math.random()*3}" fill="${c}" opacity="0.5"/>`;
-    }
-  } else if (shapes === 'crystals') {
-    for (let i = 0; i < 8; i++) {
-      const x = i < 4 ? 10 + i * 40 : w - 10 - (i - 4) * 40;
-      const ch = 30 + Math.random() * 50;
-      const c = [p[2], p[3], p[4]][Math.floor(Math.random() * 3)];
-      svg += `<polygon points="${x},${h} ${x-8},${h-ch} ${x+8},${h-ch}" fill="${c}" opacity="${0.2 + Math.random()*0.2}"/>`;
-    }
-  } else if (shapes === 'clouds') {
-    for (let i = 0; i < 5; i++) {
-      const x = Math.random() * w, y = 20 + Math.random() * h * 0.5;
-      const r = 20 + Math.random() * 30;
-      svg += `<ellipse cx="${x}" cy="${y}" rx="${r*1.5}" ry="${r*0.6}" fill="#fff" opacity="${0.04 + Math.random()*0.06}"/>`;
-    }
-  } else if (shapes === 'books') {
-    for (let i = 0; i < 5; i++) {
-      const x = i < 2 ? 15 + i * 25 : w - 15 - (i - 2) * 25;
-      const bh = 40 + Math.random() * 30;
-      const c = [p[3], p[4], p[2]][Math.floor(Math.random() * 3)];
-      svg += `<rect x="${x}" y="${h-bh}" width="12" height="${bh}" rx="1" fill="${c}" opacity="0.2"/>`;
-    }
-  } else if (shapes === 'plants') {
-    for (let i = 0; i < 6; i++) {
-      const x = i < 3 ? 20 + i * 50 : w - 20 - (i - 3) * 50;
-      svg += `<ellipse cx="${x}" cy="${h-20}" rx="15" ry="20" fill="${p[1]}" opacity="0.2"/>`;
-      svg += `<line x1="${x}" y1="${h}" x2="${x}" y2="${h-30}" stroke="#3a6020" stroke-width="2"/>`;
-    }
-  } else if (shapes === 'potions') {
-    svg += `<ellipse cx="${w*0.5}" cy="${h*0.75}" rx="30" ry="20" fill="${p[2]}" opacity="0.15"/>`;
-    for (let i = 0; i < 8; i++) {
-      const x = Math.random() * w, y = Math.random() * h;
-      svg += `<circle cx="${x}" cy="${y}" r="${1+Math.random()*2}" fill="${p[3]}" opacity="${0.2+Math.random()*0.3}"/>`;
-    }
-  } else if (shapes === 'leaves') {
-    for (let i = 0; i < 10; i++) {
-      const x = Math.random() * w, y = Math.random() * h * 0.4;
-      svg += `<ellipse cx="${x}" cy="${y}" rx="${6+Math.random()*10}" ry="${3+Math.random()*5}" fill="${p[2]}" opacity="0.12" transform="rotate(${Math.random()*60-30},${x},${y})"/>`;
-    }
-    svg += `<rect x="0" y="${h-10}" width="${w}" height="10" fill="${p[0]}" opacity="0.15"/>`;
-  }
-
-  // Tile zone indicator (center)
-  const tzW = w * 0.45, tzH = h * 0.5, tzX = (w - tzW) / 2, tzY = (h - tzH) / 2;
-  svg += `<rect x="${tzX}" y="${tzY}" width="${tzW}" height="${tzH}" rx="8" fill="rgba(0,0,0,0.12)" stroke="rgba(255,255,255,0.06)" stroke-width="1" stroke-dasharray="6,4"/>`;
-
-  // Character zones (left and right)
-  const charR = 18;
-  world.charEmoji.forEach((_, idx) => {
-    const cx = idx === 0 ? w * 0.08 : w * 0.92;
-    const cy = h * 0.55;
-    svg += `<circle cx="${cx}" cy="${cy}" r="${charR}" fill="${p[idx % p.length]}" opacity="0.12"/>`;
-  });
-
-  svg += '</svg>';
-  return svg;
-}
-
-/* ── Pixel Cat SVG ── */
-function getPixelCatSVG(outfit) {
-  // Simple cute cat SVG — changes accessory based on outfit
-  let accessory = '';
-  const bodyColor = '#ff8c3a';
-  const bellyColor = '#ffe0b0';
-
-  if (outfit === 'Astronaut') accessory = `<circle cx="24" cy="10" r="10" fill="none" stroke="#c0c0c0" stroke-width="1.5" opacity="0.6"/><circle cx="24" cy="10" r="7" fill="rgba(180,220,255,0.2)"/>`;
-  else if (outfit === 'Dive Suit') accessory = `<circle cx="24" cy="10" r="8" fill="rgba(0,200,255,0.15)" stroke="#00c8ff" stroke-width="1"/>`;
-  else if (outfit === 'Wizard Hat') accessory = `<polygon points="24,0 18,14 30,14" fill="#8040c0"/><circle cx="24" cy="5" r="1.5" fill="#ffdd00"/>`;
-  else if (outfit === 'Pirate Hat') accessory = `<path d="M16,12 Q24,4 32,12" fill="#2a1a08" stroke="#ffcc00" stroke-width="0.5"/><circle cx="20" cy="17" r="3" fill="rgba(0,0,0,0.7)" stroke="#333" stroke-width="0.5"/>`;
-  else if (outfit === 'Lab Coat') accessory = `<rect x="18" y="25" width="12" height="10" rx="2" fill="#fff" opacity="0.5" stroke="#ddd" stroke-width="0.5"/>`;
-  else if (outfit === 'Explorer Hat') accessory = `<ellipse cx="24" cy="11" rx="12" ry="4" fill="#c09040"/><rect x="18" y="5" width="12" height="7" rx="2" fill="#c09040"/>`;
-  else if (outfit === 'Spelunking Helmet') accessory = `<path d="M16,13 Q24,5 32,13" fill="#ffaa00"/><circle cx="24" cy="8" r="2.5" fill="#ffff80" opacity="0.8"/>`;
-  else if (outfit === 'Pilot Scarf') accessory = `<path d="M18,28 Q24,32 30,28 L32,35 Q24,38 16,35Z" fill="#cc2222" opacity="0.7"/>`;
-  else if (outfit === 'Reading Glasses') accessory = `<circle cx="20" cy="17" r="3.5" fill="none" stroke="#906030" stroke-width="0.8"/><circle cx="28" cy="17" r="3.5" fill="none" stroke="#906030" stroke-width="0.8"/><line x1="23.5" y1="17" x2="24.5" y2="17" stroke="#906030" stroke-width="0.8"/>`;
-  else if (outfit === 'Sun Hat') accessory = `<ellipse cx="24" cy="10" rx="14" ry="5" fill="#f0d060"/><rect x="17" y="4" width="14" height="7" rx="3" fill="#f0d060"/>`;
-  else if (outfit === 'Tiny Wizard Hat') accessory = `<polygon points="24,1 19,13 29,13" fill="#6030a0"/><circle cx="24" cy="4" r="1.2" fill="#40ff80"/>`;
-
-  return `<svg viewBox="0 0 48 48" xmlns="http://www.w3.org/2000/svg">
-    <!-- Tail -->
-    <g class="pixel-cat-tail"><path d="M38,38 Q44,30 40,24" fill="none" stroke="${bodyColor}" stroke-width="3" stroke-linecap="round"/></g>
-    <!-- Body -->
-    <ellipse cx="24" cy="34" rx="14" ry="11" fill="${bodyColor}"/>
-    <ellipse cx="24" cy="36" rx="10" ry="7" fill="${bellyColor}"/>
-    <!-- Head -->
-    <circle cx="24" cy="18" r="12" fill="${bodyColor}"/>
-    <!-- Ears -->
-    <polygon points="14,10 12,2 20,8" fill="${bodyColor}"/><polygon points="15,9 14,4 19,8" fill="#ffb0b0"/>
-    <polygon points="34,10 36,2 28,8" fill="${bodyColor}"/><polygon points="33,9 34,4 29,8" fill="#ffb0b0"/>
-    <!-- Face -->
-    <circle cx="20" cy="17" r="2" fill="#2a1a08"/><circle cx="28" cy="17" r="2" fill="#2a1a08"/>
-    <circle cx="19.3" cy="16.3" r="0.7" fill="#fff"/>
-    <circle cx="27.3" cy="16.3" r="0.7" fill="#fff"/>
-    <ellipse cx="24" cy="20" rx="1.5" ry="1" fill="#ff8080"/>
-    <path d="M22.5,21 Q24,23 25.5,21" fill="none" stroke="#2a1a08" stroke-width="0.6"/>
-    <!-- Whiskers -->
-    <line x1="10" y1="18" x2="18" y2="19" stroke="#2a1a08" stroke-width="0.4" opacity="0.4"/>
-    <line x1="10" y1="21" x2="18" y2="20" stroke="#2a1a08" stroke-width="0.4" opacity="0.4"/>
-    <line x1="38" y1="18" x2="30" y2="19" stroke="#2a1a08" stroke-width="0.4" opacity="0.4"/>
-    <line x1="38" y1="21" x2="30" y2="20" stroke="#2a1a08" stroke-width="0.4" opacity="0.4"/>
-    <!-- Paws -->
-    <ellipse cx="17" cy="43" rx="4" ry="3" fill="${bodyColor}"/><ellipse cx="31" cy="43" rx="4" ry="3" fill="${bodyColor}"/>
-    <!-- Outfit accessory -->
-    ${accessory}
-  </svg>`;
-}
-
-/* ── Apply World Theme ── */
-function applyWorldTheme(worldId) {
-  const world = WORLDS[worldId];
-  if (!world) return;
-  activeWorld = worldId;
-
-  // Update world background
-  const bgEl = document.getElementById('world-bg');
-  if (bgEl) {
-    bgEl.innerHTML = generateWorldSVG(worldId, 1920, 600);
-    document.body.classList.add('world-active');
-  }
-
-  // Update Pixel corner box
-  const catEl = document.getElementById('pixel-cat-svg');
-  if (catEl) catEl.innerHTML = getPixelCatSVG(world.pixelOutfit);
-  const labelEl = document.getElementById('pixel-world-label');
-  if (labelEl) labelEl.textContent = world.name;
-}
-
-/* ── World Selector ── */
-function openWorldSelector() {
-  const grid = document.getElementById('ws-grid');
-  if (!grid) return;
-  grid.innerHTML = '';
-
-  WORLD_KEYS.forEach(wk => {
-    const w = WORLDS[wk];
-    const card = document.createElement('div');
-    card.className = 'ws-card' + (wk === activeWorld ? ' selected' : '');
-    card.innerHTML = `
-      <div class="ws-card-scene">${generateWorldSVG(wk, 520, 240)}</div>
-      <div class="ws-card-info">
-        <div>
-          <div class="ws-card-name">${w.name}</div>
-          <div class="ws-card-chars">${w.characters}</div>
-        </div>
-        <div class="ws-card-check">${wk === activeWorld ? '✓' : ''}</div>
-      </div>`;
-    card.addEventListener('click', () => selectWorld(wk));
-    grid.appendChild(card);
-  });
-
-  document.getElementById('world-selector').classList.add('open');
-}
-
-function closeWorldSelector() {
-  document.getElementById('world-selector').classList.remove('open');
-}
-
-async function selectWorld(worldId) {
-  activeWorld = worldId;
-  applyWorldTheme(worldId);
-
-  // Persist
-  if (LD.isElectron && LD.setWorld) await LD.setWorld(worldId);
-
-  // Animate close
-  closeWorldSelector();
-}
-
-/* ═══════════════════════════════════════════════════════════════════════════
-   ONBOARDING FLOW
-   ═══════════════════════════════════════════════════════════════════════════ */
-let obCurrentScreen = 0;
-let obPin = '';
-let obPinStep = 'enter'; // 'enter' | 'confirm' | 'name'
-let obPinFirst = '';
-let obTourPanel = 0;
-
-function startOnboarding() {
-  const overlay = document.getElementById('onboarding-overlay');
-  if (!overlay) return;
-  overlay.style.display = 'block';
-
-  // Generate drifting stars for splash
-  const starsC = document.getElementById('ob-stars-container');
-  if (starsC) {
-    starsC.innerHTML = '';
-    for (let i = 0; i < 30; i++) {
-      const star = document.createElement('div');
-      star.className = 'ob-star';
-      star.style.cssText = `top:${Math.random()*100}%;left:${100+Math.random()*20}%;width:${1+Math.random()*2}px;height:${1+Math.random()*2}px;animation-duration:${8+Math.random()*12}s;animation-delay:${Math.random()*8}s`;
-      starsC.appendChild(star);
-    }
-  }
-
-  // Show splash screen
-  obGoToScreen(0);
-
-  // Auto-advance splash after 3 seconds
-  setTimeout(() => {
-    if (obCurrentScreen === 0) obGoToScreen(1);
-  }, 3000);
-}
-
-function obGoToScreen(idx) {
-  obCurrentScreen = idx;
-  const screens = ['ob-splash', 'ob-meet', 'ob-pin', 'ob-tour'];
-  screens.forEach((id, i) => {
-    const el = document.getElementById(id);
-    if (el) {
-      el.classList.toggle('active', i === idx);
-    }
-  });
-
-  if (idx === 2) obSetupPinScreen();
-  if (idx === 3) obSetupTourScreen();
-}
-
-function obSetupPinScreen() {
-  obPin = '';
-  obPinStep = 'enter';
-  obPinFirst = '';
-  obRenderPinDots();
-  obRenderNumpad();
-  document.getElementById('ob-pin-err').textContent = '';
-  document.getElementById('ob-name-section').style.display = 'none';
-}
-
-function obRenderPinDots() {
-  const container = document.getElementById('ob-pin-dots');
-  if (!container) return;
-  let html = '';
-  for (let i = 0; i < 4; i++) {
-    html += `<div class="ob-pin-dot${i < obPin.length ? ' filled' : ''}"></div>`;
-  }
-  container.innerHTML = html;
-}
-
-function obRenderNumpad() {
-  const container = document.getElementById('ob-numpad');
-  if (!container) return;
-  let html = '';
-  for (let i = 1; i <= 9; i++) {
-    html += `<button class="ob-numpad-btn" onclick="obPinDigit('${i}')">${i}</button>`;
-  }
-  html += `<button class="ob-numpad-btn" onclick="obPinClear()" style="font-size:14px">←</button>`;
-  html += `<button class="ob-numpad-btn" onclick="obPinDigit('0')">0</button>`;
-  html += `<button class="ob-numpad-btn" onclick="obPinSubmit()" style="font-size:14px;color:var(--amber)">✓</button>`;
-  container.innerHTML = html;
-}
-
-function obPinDigit(d) {
-  if (obPin.length >= 8) return;
-  obPin += d;
-  obRenderPinDots();
-  document.getElementById('ob-pin-err').textContent = '';
-}
-
-function obPinClear() {
-  obPin = obPin.slice(0, -1);
-  obRenderPinDots();
-}
-
-function obPinSubmit() {
-  const err = document.getElementById('ob-pin-err');
-  if (obPin.length < 4) { err.textContent = 'PIN must be at least 4 digits'; return; }
-  const weak = ['1234','0000','1111','2222','3333','4444','5555','6666','7777','8888','9999'];
-  if (weak.includes(obPin)) { err.textContent = 'Choose a less obvious PIN'; return; }
-
-  if (obPinStep === 'enter') {
-    obPinFirst = obPin;
-    obPin = '';
-    obPinStep = 'confirm';
-    document.getElementById('ob-pin-err').textContent = '';
-    const title = document.querySelector('.ob-pin-title');
-    if (title) title.textContent = 'CONFIRM YOUR PIN';
-    const desc = document.querySelector('.ob-pin-desc');
-    if (desc) desc.textContent = 'Enter the same PIN again to confirm.';
-    obRenderPinDots();
-  } else if (obPinStep === 'confirm') {
-    if (obPin !== obPinFirst) {
-      err.textContent = 'PINs do not match — try again';
-      obPin = '';
-      obPinFirst = '';
-      obPinStep = 'enter';
-      const title = document.querySelector('.ob-pin-title');
-      if (title) title.textContent = 'CHOOSE A SECRET PIN';
-      const desc = document.querySelector('.ob-pin-desc');
-      if (desc) desc.textContent = "Kids won't see this — you'll use it to access parent controls.";
-      obRenderPinDots();
-      return;
-    }
-    // PIN confirmed — show name input
-    obPinStep = 'name';
-    document.getElementById('ob-numpad').style.display = 'none';
-    document.getElementById('ob-pin-dots').style.display = 'none';
-    document.querySelector('.ob-pin-title').textContent = 'PIN SET ✓';
-    document.querySelector('.ob-pin-desc').textContent = '';
-    document.getElementById('ob-name-section').style.display = 'flex';
-    setTimeout(() => document.getElementById('ob-child-name')?.focus(), 200);
-  }
-}
-
-async function obFinishPin() {
-  const childName = document.getElementById('ob-child-name')?.value.trim() || '';
-  const pin = obPinFirst;
-
-  // Save PIN
-  appPin = pin;
-  if (!appData) appData = {};
-  appData.pin = pin;
-  appData.pinSet = true;
-  if (childName) appData.childName = childName;
-  if (LD.isElectron) {
-    await LD.setPin(pin);
-  }
-
-  // Update active child name if provided
-  if (childName && appData.children && appData.children.length > 0) {
-    const ac = appData.children.find(c => c.id === appData.activeChildId) || appData.children[0];
-    if (ac) {
-      ac.name = childName;
-      if (LD.isElectron && LD.updateChild) await LD.updateChild(ac.id, { name: childName });
-    }
-  }
-
-  await persistAll();
-  obGoToScreen(3);
-}
-
-function obSetupTourScreen() {
-  obTourPanel = 0;
-  obUpdateTour();
-}
-
-function obUpdateTour() {
-  const panels = document.querySelectorAll('.ob-tour-panel');
-  panels.forEach((p, i) => {
-    p.style.transform = `translateX(${(i - obTourPanel) * 100}%)`;
-  });
-
-  // Dots
-  const dotsC = document.getElementById('ob-tour-dots');
-  if (dotsC) {
-    dotsC.innerHTML = '';
-    for (let i = 0; i < 3; i++) {
-      const dot = document.createElement('div');
-      dot.className = 'ob-tour-dot' + (i === obTourPanel ? ' active' : '');
-      dot.addEventListener('click', () => { obTourPanel = i; obUpdateTour(); });
-      dotsC.appendChild(dot);
-    }
-  }
-
-  // Button text
-  const btn = document.getElementById('ob-tour-next');
-  if (btn) {
-    btn.textContent = obTourPanel >= 2 ? 'All Done! →' : 'Next →';
-  }
-}
-
-function obTourNext() {
-  if (obTourPanel < 2) {
-    obTourPanel++;
-    obUpdateTour();
-  } else {
-    obComplete();
-  }
-}
-
-async function obComplete() {
-  // Mark onboarding complete
-  if (!appData) appData = {};
-  appData.onboardingComplete = true;
-  if (LD.isElectron && LD.completeOnboarding) {
-    await LD.completeOnboarding(appData.childName || '');
-  }
-  await persistAll();
-
-  // Hide onboarding
-  const overlay = document.getElementById('onboarding-overlay');
-  if (overlay) {
-    overlay.style.opacity = '0';
-    overlay.style.transition = 'opacity .5s';
-    setTimeout(() => { overlay.style.display = 'none'; }, 500);
-  }
-
-  // Apply default world
-  applyWorldTheme(activeWorld);
-
-  // Open parent panel so parent can build first mode
-  toast('✓ Welcome to BrightGate!', 't-s');
-  setTimeout(() => {
-    renderPanelModes();
-    openOverlay('parent-panel');
-  }, 800);
-}
-
-function obSkip() {
-  // Skip goes straight to PIN setup — PIN is mandatory
-  obGoToScreen(2);
-}
-
 /* ══ STARS ══ */
 (()=>{const c=document.getElementById('stars');for(let i=0;i<140;i++){const s=document.createElement('div');s.className='star';const sz=Math.random()*2.5+.5;s.style.cssText=`width:${sz}px;height:${sz}px;top:${Math.random()*100}%;left:${Math.random()*100}%;--d:${2+Math.random()*4}s;--delay:${Math.random()*5}s;--o1:${.5+Math.random()*.5};--o2:${.1+Math.random()*.2}`;c.appendChild(s);}})();
 
@@ -1504,7 +772,7 @@ let pinLockoutUntil = 0; // timestamp ms
 
 function openPinGate(){
   // If no PIN has been set yet, show the setup wizard instead
-  if(!appPin || (appPin === '1234' && !appData?.pinSet)){
+  if(!appPin || appPin === '1234' && !appData?.pinSet){
     showPinSetupWizard();
     return;
   }
@@ -2449,6 +1717,8 @@ const LD = window.labdesk || {
   logActivity:async(e)=>{},
   loadScanCache:async()=>null,
   checkScheduleNow:async()=>{},
+  completeOnboarding:async()=>{},
+  setWorld:async()=>{},
   browseForApp:async()=>null,
   launchWithSteam:async()=>({success:false,steamFound:false}),
   startSteamHide:async()=>{},
@@ -2897,14 +2167,13 @@ document.head.appendChild(_sessStyle);
 async function persistAll(){
   if(!LD.isElectron||!appData)return;
   // Save child-specific data into the active child profile
-  const activeChildP=(appData.children||[]).find(c=>c.id===appData.activeChildId)||appData.children?.[0];
-  if(activeChildP){
-    activeChildP.modes=MODES;
-    activeChildP.schedule=schedule;
-    activeChildP.currentMode=currentMode;
-    activeChildP.usageToday=usageToday;
-    activeChildP.timeLimits=timeLimits;
-    activeChildP.activeWorld=activeWorld;
+  const activeChild=(appData.children||[]).find(c=>c.id===appData.activeChildId)||appData.children?.[0];
+  if(activeChild){
+    activeChild.modes=MODES;
+    activeChild.schedule=schedule;
+    activeChild.currentMode=currentMode;
+    activeChild.usageToday=usageToday;
+    activeChild.timeLimits=timeLimits;
   }
   // Save global settings
   appData.pin=appPin;
@@ -3687,25 +2956,20 @@ async function confirmPinSetup(){
 
 /* ══ INIT ══ */
 async function init(){
-  let needsOnboarding = false;
-
   if(LD.isElectron){
     try{
       const saved=await LD.loadData();
       if(saved){
         appData=saved;
         // Load child-specific data from active child profile
-        const activeChildObj=(saved.children||[]).find(c=>c.id===saved.activeChildId)||saved.children?.[0];
-        if(activeChildObj){
-          if(activeChildObj.modes) Object.assign(MODES,activeChildObj.modes);
-          if(activeChildObj.schedule&&activeChildObj.schedule.length===7) schedule.splice(0,7,...activeChildObj.schedule);
-          if(activeChildObj.currentMode&&MODES[activeChildObj.currentMode]) currentMode=activeChildObj.currentMode;
-          usageToday=activeChildObj.usageToday||{};
-          timeLimits=activeChildObj.timeLimits||{};
-          // Load active world
-          if(activeChildObj.activeWorld && WORLDS[activeChildObj.activeWorld]){
-            activeWorld = activeChildObj.activeWorld;
-          }
+        const activeChild=(saved.children||[]).find(c=>c.id===saved.activeChildId)||saved.children?.[0];
+        if(activeChild){
+          if(activeChild.modes) Object.assign(MODES,activeChild.modes);
+          if(activeChild.schedule&&activeChild.schedule.length===7) schedule.splice(0,7,...activeChild.schedule);
+          if(activeChild.currentMode&&MODES[activeChild.currentMode]) currentMode=activeChild.currentMode;
+          usageToday=activeChild.usageToday||{};
+          timeLimits=activeChild.timeLimits||{};
+          if(activeChild.activeWorld) activeWorld=activeChild.activeWorld;
         } else {
           // Legacy flat data (pre-migration)
           if(saved.modes) Object.assign(MODES,saved.modes);
@@ -3713,15 +2977,7 @@ async function init(){
           if(saved.currentMode&&MODES[saved.currentMode]) currentMode=saved.currentMode;
         }
         if(saved.pin) appPin=saved.pin;
-
-        // Check onboarding — only if not complete AND no PIN set
-        if(!saved.onboardingComplete && !saved.pinSet){
-          needsOnboarding = true;
-        } else if(!saved.pin && !saved.pinSet && !saved.onboardingComplete){
-          // No PIN, no onboarding done — trigger onboarding
-          needsOnboarding = true;
-        } else if(saved.pin===null && !saved.pinSet && saved.onboardingComplete){
-          // Onboarding done but PIN somehow not set — show wizard
+        else if(saved.pin===null||!saved.pinSet){
           setTimeout(showPinSetupWizard,800);
         }
       }
@@ -3747,11 +3003,6 @@ async function init(){
         const child=(saved.children||[]).find(c=>c.id===childId);
         if(child&&child.modes) Object.assign(MODES,child.modes);
         if(child) currentMode=child.currentMode||'locked';
-        // Load child's world
-        if(child&&child.activeWorld&&WORLDS[child.activeWorld]){
-          activeWorld=child.activeWorld;
-          applyWorldTheme(activeWorld);
-        }
         renderLauncher(currentMode);
         showScreen(currentMode==='locked'?'locked':'launcher');
         toast('👶 Switched to '+((child&&child.name)||'child'),'t-i');
@@ -3780,7 +3031,9 @@ async function init(){
     LD.getUsage&&LD.getUsage().then(u=>{ if(u){ usageToday=u.today||{}; timeLimits=u.limits||{}; } updateUsageDisplay(); });
 
     // Listen for schedule-driven mode changes from main process
+    // Also send current time to main to check immediately on startup
     if(LD.isElectron) setTimeout(()=>{ LD.checkScheduleNow&&LD.checkScheduleNow(); }, 5000);
+    // 5-minute warning before scheduled mode switch
     LD.onScheduleWarning&&LD.onScheduleWarning((data)=>{
       showScheduleWarning(data.label, data.minutesLeft);
     });
@@ -3794,19 +3047,392 @@ async function init(){
 
     if(LD.isElectron)setInterval(persistAll,120000);
   }
-
   renderLauncher(currentMode);
   showScreen(currentMode==='locked'?'locked':'launcher');
-
-  // Apply world theme (after main render)
-  applyWorldTheme(activeWorld);
-
-  // Start onboarding if needed (after a brief delay for UI to paint)
-  if(needsOnboarding){
-    setTimeout(startOnboarding, 300);
+  // After launcher renders, check onboarding and apply world
+  if(LD.isElectron){
+    if(!appData?.onboardingComplete) setTimeout(showSplashScreen, 400);
+    else applyWorld(activeWorld);
   }
 }
 init();
+
+/* ══════════════════════════════════════════════════════════════════════
+   WORLD SYSTEM
+══════════════════════════════════════════════════════════════════════ */
+let activeWorld = 'rainbow_meadow';
+
+const WORLDS = [
+  { id:'space_station',    name:'Space Station',       emoji:'🚀', palette:['#0a0a2e','#1a1a6e','#00c8ff'], chars:'Byte + Pixel',         tileZone:'Giant screen on hull',        pixelOutfit:'astronaut suit' },
+  { id:'deep_ocean_lab',   name:'Deep Ocean Lab',      emoji:'🌊', palette:['#001a2e','#003d5c','#00e5cc'], chars:'Eco Girl + Pixel',     tileZone:'Bioluminescent porthole wall',  pixelOutfit:'dive suit' },
+  { id:'enchanted_castle', name:'Enchanted Castle',    emoji:'🧙', palette:['#1a2e0a','#4a7c1a','#c8a800'], chars:'Wizard + Pixel',       tileZone:'Mossy stone wall',             pixelOutfit:'wizard hat & cape' },
+  { id:'pirate_ship',      name:'Pirate Ship Deck',    emoji:'🏴‍☠️', palette:['#2e1a00','#c87000','#0057a8'], chars:'Pirate + Pixel',      tileZone:'Open sky above deck',          pixelOutfit:'pirate hat & patch' },
+  { id:'science_lab',      name:'Sunny Science Lab',   emoji:'🔬', palette:['#e8f4ff','#00a0e8','#88cc00'], chars:'Byte + Wizard',        tileZone:'Giant computer screen',        pixelOutfit:'lab coat & goggles' },
+  { id:'rainbow_meadow',   name:'Rainbow Meadow',      emoji:'🌈', palette:['#87ceeb','#5cb85c','#ffd700'], chars:'Eco Girl + Pixel',     tileZone:'Wide open sky',                pixelOutfit:'explorer hat & backpack' },
+  { id:'crystal_cave',     name:'Crystal Cave',        emoji:'💎', palette:['#1a0033','#6600cc','#00ffcc'], chars:'All characters',       tileZone:'Glowing crystal wall',         pixelOutfit:'spelunking helmet' },
+  { id:'cloud_kingdom',    name:'Cloud Kingdom',       emoji:'☁️', palette:['#c8e8ff','#ffffff','#ffd080'], chars:'Pixel + Byte',         tileZone:'Fluffy cloud platform',        pixelOutfit:'pilot scarf & goggles' },
+  { id:'ancient_library',  name:'Ancient Library',     emoji:'📚', palette:['#2e1a00','#8b4513','#f4a460'], chars:'Wizard + Pirate',      tileZone:'Tall warm-lit bookshelf',      pixelOutfit:'reading glasses & bookmark' },
+  { id:'rooftop_garden',   name:'Rooftop Garden',      emoji:'🌿', palette:['#87ceeb','#228b22','#cd853f'], chars:'Eco Girl + Pixel',     tileZone:'Wide planter wall',            pixelOutfit:'gardening gloves & sun hat' },
+  { id:'magic_lab',        name:'Magic Potion Lab',    emoji:'⚗️', palette:['#1a0033','#4a0080','#00cc66'], chars:'Wizard Boy + Pixel',   tileZone:'Stone workbench surface',      pixelOutfit:'tiny pointed wizard hat' },
+  { id:'jungle_camp',      name:'Jungle Explorer Camp',emoji:'🌴', palette:['#1a3300','#4a7c1a','#c87000'], chars:'Explorer Boy + Eco Girl',tileZone:'Canvas expedition map wall',  pixelOutfit:'safari hat' },
+];
+
+function getWorld(id){ return WORLDS.find(w=>w.id===id)||WORLDS[5]; }
+
+function applyWorld(worldId){
+  const w = getWorld(worldId);
+  activeWorld = worldId;
+  // Apply CSS variables for world palette
+  const r = document.documentElement;
+  r.style.setProperty('--world-bg1', w.palette[0]);
+  r.style.setProperty('--world-bg2', w.palette[1]);
+  r.style.setProperty('--world-accent', w.palette[2]);
+  // Apply background to launcher screen
+  const launcher = document.getElementById('launcher');
+  if(launcher){
+    launcher.style.background = `linear-gradient(160deg, ${w.palette[0]} 0%, ${w.palette[1]} 60%, ${w.palette[0]} 100%)`;
+  }
+  renderPixelBox(w);
+}
+
+function renderPixelBox(world){
+  let box = document.getElementById('pixel-corner-box');
+  if(!box){
+    box = document.createElement('div');
+    box.id = 'pixel-corner-box';
+    box.style.cssText = 'position:fixed;bottom:16px;left:16px;z-index:60;cursor:pointer;user-select:none';
+    box.onclick = showWorldSelector;
+    document.body.appendChild(box);
+  }
+  box.innerHTML = `
+    <div style="position:relative;width:90px">
+      <div style="background:rgba(4,8,15,0.75);border:2px solid rgba(255,184,0,0.5);border-radius:14px;padding:8px 10px;backdrop-filter:blur(6px);text-align:center">
+        <div style="font-size:36px;line-height:1;animation:pixelWiggle 4s ease-in-out infinite">🐱</div>
+        <div style="font-family:var(--fm);font-size:9px;color:rgba(255,184,0,0.9);margin-top:4px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis">${world.name}</div>
+        <div style="font-size:8px;color:var(--muted);font-family:var(--fm)">${world.emoji} tap to move</div>
+      </div>
+    </div>`;
+}
+
+/* ══ WORLD SELECTOR ══ */
+function showWorldSelector(){
+  document.getElementById('world-selector-overlay')?.remove();
+  const ov = document.createElement('div');
+  ov.id = 'world-selector-overlay';
+  ov.style.cssText = 'position:fixed;inset:0;z-index:700;background:rgba(4,8,15,0.95);overflow-y:auto;display:flex;flex-direction:column;align-items:center;padding:32px 20px;backdrop-filter:blur(12px)';
+
+  const cards = WORLDS.map(w => {
+    const isActive = w.id === activeWorld;
+    return `<div onclick="selectWorld('${w.id}')" style="
+      width:100%;max-width:520px;padding:16px 18px;border-radius:14px;
+      background:linear-gradient(135deg,${w.palette[0]},${w.palette[1]});
+      border:2px solid ${isActive?w.palette[2]:'rgba(255,255,255,0.1)'};
+      cursor:pointer;transition:all .2s;margin-bottom:10px;
+      ${isActive?`box-shadow:0 0 20px ${w.palette[2]}55`:''};
+      display:flex;align-items:center;gap:14px">
+      <div style="font-size:36px">${w.emoji}</div>
+      <div style="flex:1">
+        <div style="font-family:var(--fd);font-size:12px;letter-spacing:2px;color:${w.palette[2]}">${w.name.toUpperCase()}</div>
+        <div style="font-size:11px;color:rgba(255,255,255,0.7);font-family:var(--fm);margin-top:2px">${w.chars}</div>
+        <div style="font-size:10px;color:rgba(255,255,255,0.45);font-family:var(--fm)">Pixel wears: ${w.pixelOutfit}</div>
+      </div>
+      ${isActive?`<div style="font-family:var(--fd);font-size:9px;letter-spacing:1px;color:${w.palette[2]};padding:3px 10px;border-radius:10px;border:1px solid ${w.palette[2]}">HERE NOW</div>`:''}
+    </div>`;
+  }).join('');
+
+  ov.innerHTML = `
+    <div style="font-family:var(--fd);font-size:14px;letter-spacing:3px;color:var(--amber);margin-bottom:6px">🐱 WHERE TO TODAY?</div>
+    <div style="font-size:13px;color:var(--muted);font-family:var(--fm);margin-bottom:20px">Pick a world for Pixel to explore</div>
+    ${cards}
+    <button onclick="document.getElementById('world-selector-overlay')?.remove()" style="margin-top:10px;padding:11px 32px;border-radius:20px;border:1px solid var(--border);background:transparent;color:var(--muted);font-family:var(--fd);font-size:10px;letter-spacing:2px;cursor:pointer">STAY HERE</button>`;
+  document.body.appendChild(ov);
+}
+
+async function selectWorld(worldId){
+  document.getElementById('world-selector-overlay')?.remove();
+  applyWorld(worldId);
+  if(LD.isElectron) await LD.setWorld(worldId);
+  if(appData){
+    const ac=(appData.children||[]).find(c=>c.id===appData.activeChildId)||appData.children?.[0];
+    if(ac) ac.activeWorld=worldId;
+  }
+  const w = getWorld(worldId);
+  toast(`${w.emoji} Off to ${w.name}!`,'t-s');
+}
+
+/* ══════════════════════════════════════════════════════════════════════
+   ONBOARDING — splash, intro, PIN setup, quick tour
+══════════════════════════════════════════════════════════════════════ */
+let _onboardChildName = '';
+
+function showSplashScreen(){
+  document.getElementById('brightgate-splash')?.remove();
+  const splash = document.createElement('div');
+  splash.id = 'brightgate-splash';
+  splash.style.cssText = `
+    position:fixed;inset:0;z-index:1000;
+    background:linear-gradient(180deg,#87ceeb 0%,#5cb85c 70%,#3a7c2a 100%);
+    display:flex;flex-direction:column;align-items:center;justify-content:center;
+    overflow:hidden;`;
+
+  // Castle SVG — hero image placeholder
+  splash.innerHTML = `
+    <style>
+      @keyframes starDrift{from{transform:translateX(-10px) translateY(0);opacity:0}50%{opacity:1}to{transform:translateX(10px) translateY(-30px);opacity:0}}
+      @keyframes castleGlow{0%,100%{filter:drop-shadow(0 0 12px rgba(255,184,0,0.4))}50%{filter:drop-shadow(0 0 28px rgba(255,184,0,0.9))}}
+      @keyframes titleFade{0%{opacity:0;transform:translateY(20px)}100%{opacity:1;transform:translateY(0)}}
+      @keyframes pixelWiggle{0%,100%{transform:rotate(-3deg)}50%{transform:rotate(3deg)}}
+      #splash-title{animation:titleFade 1.2s ease 0.8s both}
+      #splash-castle{animation:castleGlow 2.5s ease-in-out infinite}
+    </style>
+    <!-- Drifting stars -->
+    ${Array.from({length:12},(_,i)=>`<div style="position:absolute;font-size:${12+Math.random()*16}px;left:${Math.random()*95}%;top:${Math.random()*60}%;animation:starDrift ${3+Math.random()*4}s ease-in-out ${Math.random()*3}s infinite">⭐</div>`).join('')}
+    <!-- Castle SVG placeholder -->
+    <div id="splash-castle" style="margin-bottom:16px">
+      <svg width="260" height="220" viewBox="0 0 260 220">
+        <!-- Sky and rainbow -->
+        <defs>
+          <linearGradient id="rainbowG" x1="0" y1="0" x2="1" y2="0">
+            <stop offset="0%" stop-color="#ff6b6b"/><stop offset="25%" stop-color="#ffd700"/>
+            <stop offset="50%" stop-color="#51cf66"/><stop offset="75%" stop-color="#339af0"/>
+            <stop offset="100%" stop-color="#cc5de8"/>
+          </linearGradient>
+        </defs>
+        <ellipse cx="130" cy="110" rx="110" ry="40" fill="none" stroke="url(#rainbowG)" stroke-width="6" opacity="0.7"/>
+        <!-- Main tower -->
+        <rect x="90" y="60" width="80" height="110" rx="4" fill="#c8860a"/>
+        <rect x="90" y="60" width="80" height="20" fill="#a86a00"/>
+        <!-- Side towers -->
+        <rect x="50" y="80" width="50" height="90" rx="3" fill="#d4921a"/>
+        <rect x="160" y="80" width="50" height="90" rx="3" fill="#d4921a"/>
+        <!-- Tower tops -->
+        <polygon points="115,10 90,60 140,60" fill="#1a6abf"/>
+        <polygon points="75,35 50,80 100,80" fill="#2277cc"/>
+        <polygon points="185,35 160,80 210,80" fill="#2277cc"/>
+        <!-- Battlements -->
+        <rect x="88" y="55" width="12" height="12" rx="2" fill="#c8860a"/>
+        <rect x="108" y="55" width="12" height="12" rx="2" fill="#c8860a"/>
+        <rect x="128" y="55" width="12" height="12" rx="2" fill="#c8860a"/>
+        <rect x="148" y="55" width="12" height="12" rx="2" fill="#c8860a"/>
+        <rect x="168" y="55" width="12" height="12" rx="2" fill="#c8860a"/>
+        <!-- Golden lock gate -->
+        <rect x="105" y="130" width="50" height="40" rx="4" fill="#6b3a00"/>
+        <circle cx="130" cy="118" r="18" fill="none" stroke="#ffd700" stroke-width="5"/>
+        <rect x="124" y="116" width="12" height="20" rx="3" fill="#ffd700"/>
+        <!-- Lock glow -->
+        <circle cx="130" cy="118" r="22" fill="none" stroke="rgba(255,215,0,0.3)" stroke-width="3"/>
+        <!-- Stars/sparkles -->
+        <text x="62" y="108" font-size="14" opacity="0.8">✨</text>
+        <text x="188" y="108" font-size="14" opacity="0.8">✨</text>
+        <text x="125" y="210" font-size="12" opacity="0.6">✨</text>
+        <!-- Flags -->
+        <line x1="115" y1="10" x2="115" y2="0" stroke="#ffd700" stroke-width="2"/>
+        <polygon points="115,0 130,5 115,10" fill="#1a6abf"/>
+      </svg>
+    </div>
+    <div id="splash-title" style="text-align:center">
+      <div style="font-family:'Orbitron',var(--fd);font-size:32px;font-weight:900;letter-spacing:6px;
+        background:linear-gradient(135deg,#ffd700,#ff8c00,#ffd700);-webkit-background-clip:text;
+        -webkit-text-fill-color:transparent;background-clip:text;margin-bottom:6px">BRIGHTGATE</div>
+      <div style="font-family:var(--fm);font-size:13px;color:rgba(255,255,255,0.8);letter-spacing:2px">A safe place to explore, learn and play</div>
+    </div>`;
+
+  document.body.appendChild(splash);
+  setTimeout(()=> {
+    splash.style.transition='opacity 0.6s ease';
+    splash.style.opacity='0';
+    setTimeout(()=>{ splash.remove(); showOnboardingIntro(); }, 600);
+  }, 3000);
+}
+
+function showOnboardingIntro(){
+  document.getElementById('onboarding-screen')?.remove();
+  const ov = document.createElement('div');
+  ov.id = 'onboarding-screen';
+  ov.style.cssText = 'position:fixed;inset:0;z-index:1000;background:linear-gradient(160deg,#0a1628,#07120f);display:flex;flex-direction:column;align-items:center;justify-content:center;padding:40px;text-align:center;gap:20px';
+  ov.innerHTML = `
+    <style>
+      @keyframes slideInLeft{from{opacity:0;transform:translateX(-60px)}to{opacity:1;transform:translateX(0)}}
+      @keyframes slideInRight{from{opacity:0;transform:translateX(60px)}to{opacity:1;transform:translateX(0)}}
+      #pixel-intro{animation:slideInLeft 0.7s ease 0.3s both}
+      #byte-intro{animation:slideInRight 0.7s ease 0.5s both}
+    </style>
+    <div style="font-family:var(--fd);font-size:11px;letter-spacing:3px;color:var(--cyan);margin-bottom:4px">WELCOME TO</div>
+    <div style="font-family:'Orbitron',var(--fd);font-size:28px;font-weight:900;letter-spacing:4px;color:#ffd700">BRIGHTGATE</div>
+    <div style="display:flex;gap:32px;align-items:flex-end;margin:16px 0">
+      <div id="pixel-intro" style="display:flex;flex-direction:column;align-items:center;gap:8px">
+        <div style="font-size:64px;animation:pixelWiggle 3s ease-in-out infinite">🐱</div>
+        <div style="background:rgba(0,200,255,0.12);border:1px solid rgba(0,200,255,0.3);border-radius:14px;padding:10px 14px;max-width:200px;font-family:var(--fm);font-size:12px;color:var(--text);line-height:1.6">
+          Hi! I'm <strong style="color:var(--cyan)">Pixel</strong>. BrightGate keeps this computer safe for kids! 🐾
+        </div>
+      </div>
+      <div id="byte-intro" style="display:flex;flex-direction:column;align-items:center;gap:8px">
+        <div style="font-size:64px;animation:pixelWiggle 3s ease-in-out infinite 0.5s">🤖</div>
+        <div style="background:rgba(0,255,136,0.08);border:1px solid rgba(0,255,136,0.25);border-radius:14px;padding:10px 14px;max-width:200px;font-family:var(--fm);font-size:12px;color:var(--text);line-height:1.6">
+          And I'm <strong style="color:var(--green)">Byte</strong>! Let's get set up — takes just a minute! ⚙️
+        </div>
+      </div>
+    </div>
+    <button onclick="showOnboardingPin()" style="padding:14px 40px;border-radius:30px;border:none;background:linear-gradient(135deg,#006090,#00c8ff);color:#fff;font-family:var(--fd);font-size:12px;font-weight:700;letter-spacing:3px;cursor:pointer;margin-top:8px">LET'S GO →</button>
+    <div onclick="skipOnboarding()" style="font-family:var(--fm);font-size:11px;color:var(--muted);cursor:pointer;text-decoration:underline;opacity:0.6">Skip setup</div>`;
+  document.body.appendChild(ov);
+}
+
+function showOnboardingPin(){
+  const ov = document.getElementById('onboarding-screen');
+  if(!ov) return;
+  ov.innerHTML = `
+    <div style="font-size:56px;margin-bottom:4px">🔑</div>
+    <div style="font-family:var(--fd);font-size:12px;letter-spacing:3px;color:var(--amber)">PARENT SECRET PIN</div>
+    <div style="font-size:13px;color:var(--muted);font-family:var(--fm);max-width:320px;line-height:1.7;margin-bottom:8px">
+      Choose a PIN only <em>you</em> know. Your child will never see this screen.
+    </div>
+    <div style="display:flex;gap:10px;margin:8px 0" id="ob-pin-dots">
+      ${[0,1,2,3].map(i=>`<div id="ob-dot-${i}" style="width:20px;height:20px;border-radius:50%;border:2px solid var(--cyan);background:transparent;transition:all .2s"></div>`).join('')}
+    </div>
+    <div id="ob-pin-err" style="font-size:11px;color:var(--red);min-height:16px;font-family:var(--fm)"></div>
+    <!-- Large numpad -->
+    <div style="display:grid;grid-template-columns:repeat(3,72px);gap:10px;margin:12px 0" id="ob-numpad">
+      ${[1,2,3,4,5,6,7,8,9,'',0,'⌫'].map(k=>`<button onclick="obPinKey('${k}')" style="height:64px;border-radius:14px;border:1px solid ${typeof k==='number'?'rgba(0,200,255,0.3)':'rgba(255,61,90,0.3)'};background:${typeof k==='number'?'rgba(0,200,255,0.07)':'rgba(255,61,90,0.07)'};color:${typeof k==='number'?'var(--cyan)':'var(--red)'};font-family:var(--fd);font-size:${typeof k==='number'?'20px':'16px'};cursor:pointer;${k===''?'visibility:hidden':''}">${k}</button>`).join('')}
+    </div>
+    <div style="font-size:11px;color:var(--muted);font-family:var(--fm)" id="ob-pin-stage">Enter PIN</div>
+    <div style="margin-top:8px;font-family:var(--fm);font-size:12px;color:var(--muted)">What's your child's name?</div>
+    <input id="ob-child-name" class="txt-in" placeholder="e.g. Emma" maxlength="24" style="max-width:240px;text-align:center;margin:4px 0" value="">`;
+  ov.style.justifyContent = 'center';
+
+  // PIN entry state
+  ov._pin1 = ''; ov._confirming = false;
+}
+
+function obPinKey(k){
+  const ov = document.getElementById('onboarding-screen');
+  if(!ov) return;
+  let pin = ov._pin1||'';
+  if(!ov._confirming){
+    if(k==='⌫') pin=pin.slice(0,-1);
+    else if(pin.length<4 && k!=='') pin+=k;
+    ov._pin1=pin;
+    // Update dots
+    for(let i=0;i<4;i++){
+      const dot=document.getElementById('ob-dot-'+i);
+      if(dot) dot.style.background=i<pin.length?'var(--cyan)':'transparent';
+    }
+    if(pin.length===4){
+      const obvious=['1234','0000','1111','1212','9999','0123'];
+      if(obvious.includes(pin)){
+        document.getElementById('ob-pin-err').textContent='Too easy to guess — try another';
+        ov._pin1=''; for(let i=0;i<4;i++) document.getElementById('ob-dot-'+i).style.background='transparent';
+        return;
+      }
+      // Move to confirm
+      ov._confirming=true; ov._pin2=''; ov._pin1=pin;
+      document.getElementById('ob-pin-stage').textContent='Confirm PIN';
+      document.getElementById('ob-pin-err').textContent='';
+      for(let i=0;i<4;i++) document.getElementById('ob-dot-'+i).style.background='transparent';
+    }
+  } else {
+    let pin2=ov._pin2||'';
+    if(k==='⌫') pin2=pin2.slice(0,-1);
+    else if(pin2.length<4 && k!=='') pin2+=k;
+    ov._pin2=pin2;
+    for(let i=0;i<4;i++){
+      const dot=document.getElementById('ob-dot-'+i);
+      if(dot) dot.style.background=i<pin2.length?'var(--green)':'transparent';
+    }
+    if(pin2.length===4){
+      if(pin2!==ov._pin1){
+        document.getElementById('ob-pin-err').textContent="PINs don't match — try again";
+        ov._confirming=false; ov._pin2='';
+        document.getElementById('ob-pin-stage').textContent='Enter PIN';
+        for(let i=0;i<4;i++) document.getElementById('ob-dot-'+i).style.background='transparent';
+        return;
+      }
+      // Success — save and move on
+      finishPinOnboarding(ov._pin1);
+    }
+  }
+}
+
+async function finishPinOnboarding(pin){
+  appPin=pin;
+  const childName=document.getElementById('ob-child-name')?.value.trim()||'My Child';
+  if(!appData) appData={};
+  appData.pin=pin; appData.pinSet=true;
+  if(LD.isElectron){
+    await LD.setPin(pin);
+    await LD.completeOnboarding(childName);
+  }
+  _onboardChildName=childName;
+  await persistAll();
+  showOnboardingTour();
+}
+
+function showOnboardingTour(){
+  const ov = document.getElementById('onboarding-screen');
+  if(!ov) return;
+  let panel=0;
+  const panels=[
+    { emoji:'🎯', title:'Tap a tile', body:'Each tile opens an app or website your parent has approved. Everything here is safe.' },
+    { emoji:'🚪', title:'Exit Gate', body:'The EXIT GATE bar at the top always brings you back to BrightGate from any app.' },
+    { emoji:'⚙️', title:'Parent button', body:'Parents tap the PARENT button to add apps, set screen time, and manage settings.' },
+  ];
+  function renderPanel(){
+    const p=panels[panel];
+    ov.innerHTML=`
+      <div style="font-family:var(--fm);font-size:11px;color:var(--muted);margin-bottom:16px">${panel+1} of ${panels.length}</div>
+      <div style="font-size:72px;margin-bottom:16px;animation:titleFade 0.4s ease">${p.emoji}</div>
+      <div style="font-family:var(--fd);font-size:14px;letter-spacing:3px;color:var(--cyan);margin-bottom:10px">${p.title.toUpperCase()}</div>
+      <div style="font-size:14px;color:var(--text);font-family:var(--fm);max-width:360px;line-height:1.8;margin-bottom:32px">${p.body}</div>
+      <div style="display:flex;gap:8px;margin-bottom:12px">
+        ${panels.map((_,i)=>`<div style="width:8px;height:8px;border-radius:50%;background:${i===panel?'var(--cyan)':'rgba(0,200,255,0.2)'}"></div>`).join('')}
+      </div>
+      <button onclick="nextTourPanel()" style="padding:13px 40px;border-radius:30px;border:none;background:linear-gradient(135deg,#006090,#00c8ff);color:#fff;font-family:var(--fd);font-size:11px;font-weight:700;letter-spacing:2px;cursor:pointer">
+        ${panel<panels.length-1?'NEXT →':'ALL DONE! →'}
+      </button>`;
+    ov._tourPanel=panel;
+  }
+  window.nextTourPanel=function(){
+    const cur=ov._tourPanel||0;
+    if(cur<panels.length-1){ panel=cur+1; renderPanel(); }
+    else finishOnboarding();
+  };
+  renderPanel();
+}
+
+async function finishOnboarding(){
+  document.getElementById('onboarding-screen')?.remove();
+  // Show world selector first time
+  showWorldSelector();
+  renderPanelModes();
+  openOverlay('parent-panel');
+}
+
+async function skipOnboarding(){
+  document.getElementById('onboarding-screen')?.remove();
+  if(LD.isElectron) await LD.completeOnboarding('My Child');
+  if(!appData) appData={};
+  appData.onboardingComplete=true;
+  await persistAll();
+  applyWorld(activeWorld);
+}
+
+// Add CSS animation for Pixel corner box
+(function(){
+  const s=document.createElement('style');
+  s.textContent=`
+    @keyframes pixelWiggle{0%,100%{transform:rotate(-4deg) scale(1)}50%{transform:rotate(4deg) scale(1.08)}}
+    #pixel-corner-box:hover>div{border-color:rgba(255,184,0,0.9)!important;transform:scale(1.06)}
+    #pixel-corner-box>div{transition:all .2s}
+    @keyframes titleFade{0%{opacity:0;transform:translateY(16px)}100%{opacity:1;transform:translateY(0)}}
+  `;
+  document.head.appendChild(s);
+})();
+
+// Load active world from child profile on init
+(function patchInitForWorld(){
+  const _origInit=window.init;
+  // The world is loaded after init via the timeout above
+})();
 </script>
 </body>
 </html>

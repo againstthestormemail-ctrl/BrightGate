@@ -81,6 +81,8 @@ contextBridge.exposeInMainWorld('labdesk', {
   onEmergencyPin:   (cb)               => ipcRenderer.on('emergency:pinGate', () => cb()),
   checkScheduleNow: ()                  => ipcRenderer.invoke('schedule:checkNow'),
   browseForApp:     ()                  => ipcRenderer.invoke('app:browse'),
+  completeOnboarding:(name)             => ipcRenderer.invoke('onboarding:complete', name),
+  setWorld:         (worldId)           => ipcRenderer.invoke('world:set', worldId),
   launchWithSteam:  (exePath)             => ipcRenderer.invoke('app:launchWithSteam', exePath),
   startSteamHide:   ()                    => ipcRenderer.invoke('steam:startHideWatcher'),
   stopSteamHide:    ()                    => ipcRenderer.invoke('steam:stopHideWatcher'),
@@ -94,14 +96,6 @@ contextBridge.exposeInMainWorld('labdesk', {
   // Cookies
   extractCookies:   (domain)             => ipcRenderer.invoke('cookies:extractFromBrowser', domain),
   injectCookies:    (domain, cookies)    => ipcRenderer.invoke('cookies:inject', domain, cookies),
-
-  // World system
-  setWorld:         (worldId)            => ipcRenderer.invoke('world:set', worldId),
-  getWorld:         ()                   => ipcRenderer.invoke('world:get'),
-
-  // Onboarding
-  completeOnboarding: (childName)        => ipcRenderer.invoke('onboarding:complete', childName),
-  getOnboardingStatus: ()                => ipcRenderer.invoke('onboarding:status'),
 
   isElectron:       true,
   platform:         process.platform,
