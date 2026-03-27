@@ -21,7 +21,7 @@ function getLocalIP() {
   return '127.0.0.1';
 }
 
-const CURRENT_VERSION = '1.6.8';
+const CURRENT_VERSION = '1.7.0';
 
 // ─── DATA ─────────────────────────────────────────────────────────────────────
 const userDataPath = app.getPath('userData');
@@ -51,6 +51,7 @@ function getDefaultChildProfile(name = 'Child', avatar = '🧒') {
     name,
     avatar,
     currentMode: 'locked',
+    activeWorld: 'space_station',
     modes: {
       locked: { label: 'LOCKED', tagline: '', color: '#ff3d5a', tiles: [], apps: [], urls: [], urlConfigs: [] }
     },
@@ -70,6 +71,8 @@ function getDefaultData() {
     kioskMode: false,
     blockingEnabled: true,
     startWithWindows: false,
+    onboardingComplete: false,
+    childName: '',
     urlSettings: { blockAds: true, globalBlockedKeys: [] },
     // Multi-child
     children: [defaultChild],
@@ -212,21 +215,9 @@ function killProcess(pid, name) {
   }
 }
 
-// ── Process list helpers — CIM preferred, tasklist fallback ──
-function getProcessListCIM() {
-  // Get-CimInstance replaces WMIC (deprecated in Win11). Returns JSON array.
-  const ps = `Get-CimInstance Win32_Process | Select-Object Name,ProcessId | ConvertTo-Json -Compress`;
-  const out = execSync(
-    `powershell -NoProfile -NonInteractive -Command "${ps}"`,
-    { encoding: 'utf8', timeout: 8000, stdio: ['pipe','pipe','ignore'] }
-  ).trim();
-  const arr = JSON.parse(out);
-  // ConvertTo-Json may return a single object if only one process — normalise
-  return Array.isArray(arr) ? arr : [arr];
-}
-
+// ── Process list helpers — tasklist primary (native binary, ~80ms), CIM fallback ──
 function getProcessListTasklist() {
-  // Fallback: tasklist CSV — always available, slower
+  // tasklist is a native Windows binary — 10x faster than PowerShell CIM (~80ms vs ~800ms)
   const out = execSync(
     'tasklist /FO CSV /NH',
     { encoding: 'utf8', timeout: 8000, stdio: ['pipe','pipe','ignore'] }
@@ -238,13 +229,24 @@ function getProcessListTasklist() {
     .filter(p => p.Name && !isNaN(p.ProcessId));
 }
 
+function getProcessListCIM() {
+  // CIM fallback — more accurate but slow (~800-1200ms per call)
+  const ps = `Get-CimInstance Win32_Process | Select-Object Name,ProcessId | ConvertTo-Json -Compress`;
+  const out = execSync(
+    `powershell -NoProfile -NonInteractive -Command "${ps}"`,
+    { encoding: 'utf8', timeout: 8000, stdio: ['pipe','pipe','ignore'] }
+  ).trim();
+  const arr = JSON.parse(out);
+  return Array.isArray(arr) ? arr : [arr];
+}
+
 function getProcessList() {
   try {
-    return getProcessListCIM();
+    return getProcessListTasklist();
   } catch(e) {
-    console.warn('[Monitor] CIM failed, falling back to tasklist:', e.message);
+    console.warn('[Monitor] tasklist failed, falling back to CIM:', e.message);
     try {
-      return getProcessListTasklist();
+      return getProcessListCIM();
     } catch(e2) {
       console.error('[Monitor] Both process list methods failed:', e2.message);
       return [];
@@ -273,8 +275,13 @@ function runMonitorCycle() {
 function startMonitor() {
   if (monitorInterval) return;
   isMonitoring = true;
-  monitorInterval = setInterval(runMonitorCycle, 3000);
-  console.log('[BrightGate] Process monitor started');
+  // Delay first cycle by 10 seconds to avoid startup performance hit
+  setTimeout(() => {
+    if (!isMonitoring) return;
+    runMonitorCycle();
+    monitorInterval = setInterval(runMonitorCycle, 5000);
+  }, 10000);
+  console.log('[BrightGate] Process monitor started (first cycle in 10s, then every 5s)');
 }
 
 function stopMonitor() {
@@ -1059,6 +1066,36 @@ ipcMain.handle('settings:setStartup', (e, enabled) => {
 
 // Fire schedule check on demand (called from renderer on startup)
 ipcMain.handle('schedule:checkNow', () => { checkSchedule(); return true; });
+
+// ─── WORLD SYSTEM ────────────────────────────────────────────────────────────
+ipcMain.handle('world:set', (e, worldId) => {
+  const child = activeChild();
+  if (child) {
+    child.activeWorld = worldId;
+    saveData(appData);
+  }
+  return { ok: true };
+});
+
+ipcMain.handle('world:get', () => {
+  const child = activeChild();
+  return child?.activeWorld || 'space_station';
+});
+
+// ─── ONBOARDING ──────────────────────────────────────────────────────────────
+ipcMain.handle('onboarding:complete', (e, childName) => {
+  appData.onboardingComplete = true;
+  if (childName) appData.childName = childName;
+  saveData(appData);
+  return { ok: true };
+});
+
+ipcMain.handle('onboarding:status', () => {
+  return {
+    complete: !!appData.onboardingComplete,
+    childName: appData.childName || ''
+  };
+});
 
 // ─── USAGE TRACKING ───────────────────────────────────────────────────────────
 

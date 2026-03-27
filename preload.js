@@ -95,7 +95,15 @@ contextBridge.exposeInMainWorld('labdesk', {
   extractCookies:   (domain)             => ipcRenderer.invoke('cookies:extractFromBrowser', domain),
   injectCookies:    (domain, cookies)    => ipcRenderer.invoke('cookies:inject', domain, cookies),
 
+  // World system
+  setWorld:         (worldId)            => ipcRenderer.invoke('world:set', worldId),
+  getWorld:         ()                   => ipcRenderer.invoke('world:get'),
+
+  // Onboarding
+  completeOnboarding: (childName)        => ipcRenderer.invoke('onboarding:complete', childName),
+  getOnboardingStatus: ()                => ipcRenderer.invoke('onboarding:status'),
+
   isElectron:       true,
   platform:         process.platform,
-  version:          '1.6.5'
+  version:          '1.7.0'
 });

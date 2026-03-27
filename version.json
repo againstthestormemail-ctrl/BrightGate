@@ -1,5 +1,5 @@
 {
-  "version": "1.6.8",
-  "updatedAt": "2026-03-22",
-  "notes": "CRITICAL: Never kill system processes \u2014 fixes forced PC restart on launch"
+  "version": "1.7.0",
+  "updatedAt": "2026-03-26",
+  "notes": "World system, onboarding flow, performance fixes, parent button fix"
 }
