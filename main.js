@@ -1,7 +1,7 @@
 /**
  * BrightGate — main.js
  * Electron main process
- * v1.6.7
+ * v1.6.8
  */
 
 const { app, BrowserWindow, ipcMain, globalShortcut, dialog, shell, session } = require('electron');
@@ -21,7 +21,7 @@ function getLocalIP() {
   return '127.0.0.1';
 }
 
-const CURRENT_VERSION = '1.6.7';
+const CURRENT_VERSION = '1.6.8';
 
 // ─── DATA ─────────────────────────────────────────────────────────────────────
 const userDataPath = app.getPath('userData');
@@ -108,12 +108,47 @@ function activeChild() {
 
 // ─── ALWAYS-BLOCKED PROCESSES ─────────────────────────────────────────────────
 // These are always killed regardless of mode allowlist
-const ALWAYS_BLOCKED = [
+// ── NEVER kill these — Windows system processes, drivers, security tools ──
+// Killing any of these can cause a system crash, BSOD, or forced restart.
+const SYSTEM_PROTECTED = new Set([
+  // Core Windows processes
+  'system','system idle process','smss.exe','csrss.exe','wininit.exe',
+  'winlogon.exe','lsass.exe','lsaiso.exe','services.exe','svchost.exe',
+  'dwm.exe','explorer.exe','taskhostw.exe','sihost.exe','ctfmon.exe',
+  'fontdrvhost.exe','spoolsv.exe','searchindexer.exe','wuauclt.exe',
+  'trustedinstaller.exe','tiworker.exe','msiexec.exe','dllhost.exe',
+  'conhost.exe','rundll32.exe','regsvr32.exe','wermgr.exe','werfault.exe',
+  // Security / antivirus (killing these triggers BSOD on some systems)
+  'msmpeng.exe','nissrv.exe','securityhealthservice.exe','wscsvc.exe',
+  'mpsvc.exe','antimalware service executable',
+  // GPU / display drivers (killing crashes display)
+  'nvdisplay.container.exe','nvcontainer.exe','nvidia web helper.exe',
+  'nvcplui.exe','nvsphelper64.exe','nvtelemetrycontainer.exe',
+  'amdow.exe','amdrsserv.exe','amdext.exe','igfxcuiservice.exe',
+  'igfxtray.exe','igfxhk.exe','igfxsrvc.exe',
+  // Audio (killing causes audio crash)
+  'audiodg.exe','audiosrv.exe',
+  // Network (killing drops all network connections)
+  'lsass.exe','netsh.exe','netsession_win.exe',
+  // Input devices
+  'hidserv.exe','inputhost.exe','tabbttnex.exe',
+  // Windows shell helpers
+  'shellexperiencehost.exe','startmenuexperiencehost.exe',
+  'searchhost.exe','runtimebroker.exe','applicationframehost.exe',
+  'systemsettings.exe','textinputhost.exe','lockapp.exe',
+  // Hardware management
+  'wmiprvse.exe','wmiapsrv.exe','wbemstiparsers.exe',
+  // Other safe-list items
+  'unsecapp.exe','sedsvc.exe','sgrmusicherper.exe',
+]);
+
+// ── Block these user-space apps (child escape vectors) ──
+const ALWAYS_BLOCKED = new Set([
   'chrome.exe', 'msedge.exe', 'firefox.exe', 'opera.exe', 'brave.exe',
   'iexplore.exe', 'safari.exe', 'vivaldi.exe', 'waterfox.exe', 'tor.exe',
   'taskmgr.exe', 'regedit.exe', 'cmd.exe', 'powershell.exe', 'wscript.exe',
   'cscript.exe', 'mshta.exe', 'wmic.exe', 'control.exe', 'mmc.exe'
-];
+]);
 
 // ─── PROCESS MONITOR ──────────────────────────────────────────────────────────
 let monitorInterval = null;
@@ -139,18 +174,30 @@ ipcMain.handle('session:setActive', (e, exePath) => {
 
 function isProcessAllowed(exeName) {
   const name = exeName.toLowerCase().trim();
+
+  // ALWAYS allow — Windows system processes, drivers, security tools.
+  // Killing these can cause a BSOD or forced system restart.
+  if (SYSTEM_PROTECTED.has(name)) return true;
+  // Allow any svchost variant, system service suffixes
+  if (name.startsWith('svchost') || name.endsWith('.tmp') ||
+      name.startsWith('msdtc') || name.startsWith('sppsvc')) return true;
+
   // Always allow BrightGate's own processes
   if (name.includes('electron') || name.includes('brightgate') ||
       name === 'node.exe' || name === 'npm.cmd') return true;
   // Always allow the currently active session app
   if (activeSessionExe && name === activeSessionExe) return true;
-  // Always block dangerous processes
-  if (ALWAYS_BLOCKED.includes(name)) return false;
-  // If blocking disabled, allow everything else
+
+  // Always block known child-escape vectors
+  if (ALWAYS_BLOCKED.has(name)) return false;
+
+  // If blocking is disabled, allow everything else
   if (!appData.blockingEnabled) return true;
-  // If mode is locked, block everything not BrightGate
+
+  // If mode is locked, block non-system user apps
   const child = activeChild();
   if (!child || child.currentMode === 'locked') return false;
+
   // Check against current mode's allowed apps
   const allowed = getAllowedExes();
   return allowed.includes(name);

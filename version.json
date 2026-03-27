@@ -1,5 +1,5 @@
 {
-  "version": "1.6.7",
+  "version": "1.6.8",
   "updatedAt": "2026-03-22",
-  "notes": "Fix parent button on first run, locked mode switch, null PIN guard"
+  "notes": "CRITICAL: Never kill system processes \u2014 fixes forced PC restart on launch"
 }
