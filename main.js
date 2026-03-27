@@ -1,7 +1,7 @@
 /**
  * BrightGate — main.js
  * Electron main process
- * v1.6.6
+ * v1.6.7
  */
 
 const { app, BrowserWindow, ipcMain, globalShortcut, dialog, shell, session } = require('electron');
@@ -21,7 +21,7 @@ function getLocalIP() {
   return '127.0.0.1';
 }
 
-const CURRENT_VERSION = '1.6.6';
+const CURRENT_VERSION = '1.6.7';
 
 // ─── DATA ─────────────────────────────────────────────────────────────────────
 const userDataPath = app.getPath('userData');

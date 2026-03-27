@@ -1,5 +1,5 @@
 {
-  "version": "1.6.6",
+  "version": "1.6.7",
   "updatedAt": "2026-03-22",
-  "notes": "Steam containment \u2014 launch Steam games with Steam hidden from child"
+  "notes": "Fix parent button on first run, locked mode switch, null PIN guard"
 }

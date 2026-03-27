@@ -771,12 +771,19 @@ let pinAttempts = 0;
 let pinLockoutUntil = 0; // timestamp ms
 
 function openPinGate(){
+  // If no PIN has been set yet, show the setup wizard instead
+  if(!appPin || appPin === '1234' && !appData?.pinSet){
+    showPinSetupWizard();
+    return;
+  }
   const now = Date.now();
   if(pinLockoutUntil > now){
     const secsLeft = Math.ceil((pinLockoutUntil - now) / 1000);
     toast('Too many attempts — wait '+secsLeft+'s','t-w');
     return;
   }
+  // Close wizard if somehow both are open
+  document.getElementById('pin-setup-overlay')?.remove();
   document.getElementById('gate-input').value='';
   openOverlay('pin-gate');
   updatePinLockoutUI();
@@ -819,7 +826,7 @@ async function gateSubmit(){
     setTimeout(()=>document.getElementById('gate-input')?.classList.remove('shake'),400);
     return;
   }
-  const ok = LD.isElectron ? await LD.verifyPin(v) : (v===appPin);
+  const ok = LD.isElectron ? await LD.verifyPin(v) : (appPin && v===appPin);
   if(!ok){
     pinAttempts++;
     document.getElementById('gate-input').classList.add('shake');
@@ -848,8 +855,13 @@ function requestSwitch(mode){
   if(mode==='locked'){
     currentMode='locked';renderLauncher('locked');showScreen('locked');persistMode('locked');return;
   }
-  if(currentMode==='locked')return;
+  // Note: parent panel is PIN-gated, so switching from locked is intentional here
   if(!MODES[mode]){toast('Mode not found','t-w');return;}
+  // If currently locked, switch directly without countdown (parent action)
+  if(currentMode==='locked'){
+    doFinishSwitch(mode);
+    return;
+  }
   pendingMode=mode;
   const modeLabel=MODES[mode]?.label||mode;
   const titleEl=document.getElementById('cd-title');
@@ -1744,7 +1756,7 @@ const LD = window.labdesk || {
   platform:'browser', version:'1.0.0-demo'
 };
 
-let appPin='1234', appData=null;
+let appPin=null, appData=null;
 
 /* ══════════════════════════════════════════════════════════════════════════
    USAGE TRACKING & TIME LIMITS
@@ -2930,6 +2942,9 @@ async function confirmPinSetup(){
   if(p1==='1234'||p1==='0000'||p1==='1111'){if(err)err.textContent='Choose a less obvious PIN';return;}
   if(p1!==p2){if(err)err.textContent='PINs do not match';return;}
   appPin=p1;
+  if(!appData) appData = { pinSet: true, pin: p1 };
+  appData.pin = p1;
+  appData.pinSet = true;
   if(LD.isElectron){ await LD.setPin(p1); }
   await persistAll(); // Ensure pin is saved before anything else
   document.getElementById('pin-setup-overlay')?.remove();
