@@ -80,8 +80,22 @@ contextBridge.exposeInMainWorld('labdesk', {
   onRemoteLimits:   (cb)               => ipcRenderer.on('remote:timeLimitsChange', (_, v) => cb(v)),
   onEmergencyPin:   (cb)               => ipcRenderer.on('emergency:pinGate', () => cb()),
   checkScheduleNow: ()                  => ipcRenderer.invoke('schedule:checkNow'),
+  browseForApp:     ()                  => ipcRenderer.invoke('app:browse'),
+  launchWithSteam:  (exePath)             => ipcRenderer.invoke('app:launchWithSteam', exePath),
+  startSteamHide:   ()                    => ipcRenderer.invoke('steam:startHideWatcher'),
+  stopSteamHide:    ()                    => ipcRenderer.invoke('steam:stopHideWatcher'),
+
+  // Credentials
+  saveCreds:        (domain, u, p)       => ipcRenderer.invoke('creds:save', domain, u, p),
+  getCreds:         (domain)             => ipcRenderer.invoke('creds:get', domain),
+  listCreds:        ()                   => ipcRenderer.invoke('creds:list'),
+  deleteCreds:      (domain)             => ipcRenderer.invoke('creds:delete', domain),
+
+  // Cookies
+  extractCookies:   (domain)             => ipcRenderer.invoke('cookies:extractFromBrowser', domain),
+  injectCookies:    (domain, cookies)    => ipcRenderer.invoke('cookies:inject', domain, cookies),
 
   isElectron:       true,
   platform:         process.platform,
-  version:          '1.6.0'
+  version:          '1.6.5'
 });

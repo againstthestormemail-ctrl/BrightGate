@@ -997,9 +997,15 @@ function renderTileEditor(){
     <div class="divider"></div>
     <div>
       <div class="fl">ADD CUSTOM APP TILE</div>
+      <div style="display:flex;gap:8px;margin-bottom:8px">
+        <button class="add-tile-btn" style="flex:1;padding:10px" onclick="browseForAppTile()">
+          📂 BROWSE — Find any .exe on this PC
+        </button>
+      </div>
       <div class="add-row">
         <input class="txt-in" id="te-icon-in" placeholder="Emoji" style="width:60px;flex:none;text-align:center;font-size:20px">
         <input class="txt-in" id="te-name-in" placeholder="App or tile name" onkeydown="if(event.key==='Enter')addCustomTile()">
+        <input class="txt-in" id="te-path-in" placeholder="C:\path\to\app.exe (optional)" style="flex:2">
         <button class="add-btn" onclick="addCustomTile()">+ ADD</button>
       </div>
     </div>`;
@@ -1023,15 +1029,20 @@ function renderTileEditor(){
 }
 function renderTileCards(tiles){
   if(!tiles.length)return`<div style="font-family:var(--fm);font-size:12px;color:var(--muted);padding:6px 0">No tiles yet — add some below</div>`;
-  return`<div class="tile-edit-grid">${tiles.map((t,i)=>`
-    <div class="te-card">
+  return`<div class="tile-edit-grid">${tiles.map((t,i)=>{
+    const isUrl=!!t.url;
+    const hasSteam=!!t.requiresSteam;
+    const typeLabel=isUrl?'Website tile':hasSteam?'🎮 Steam game':'App tile';
+    const steamBadge=hasSteam?'<span style="font-size:9px;padding:1px 6px;border-radius:6px;background:rgba(27,40,56,0.9);color:#c7d5e0;border:1px solid rgba(102,192,244,0.4);font-family:var(--fm);margin-left:4px">Steam</span>':'';
+    return`<div class="te-card">
       <div class="te-icon">${t.icon}</div>
-      <div class="te-info"><div class="te-name">${t.label}</div><div class="te-type">App tile</div></div>
+      <div class="te-info"><div class="te-name">${t.label}${steamBadge}</div><div class="te-type">${typeLabel}</div></div>
       <div class="te-actions">
         <button class="te-btn edit-b" title="Edit" onclick="editTile(${i})">✏</button>
         <button class="te-btn del-b" title="Remove" onclick="removeTile(${i})">✕</button>
       </div>
-    </div>`).join('')}</div>`;
+    </div>`;
+  }).join('')}</div>`;
 }
 function toggleTilePreset(i){
   // toggleTilePreset removed — PRESET_APPS no longer used
@@ -1039,12 +1050,21 @@ function toggleTilePreset(i){
 function addCustomTile(){
   const icon=document.getElementById('te-icon-in')?.value.trim()||'📦';
   const name=document.getElementById('te-name-in')?.value.trim();
+  const execPath=document.getElementById('te-path-in')?.value.trim()||null;
   if(!name||!name.trim()){toast('Enter a tile name','t-w');return;}
   if(name.trim().length<2){toast('Tile name too short','t-w');return;}
-  MODES[editModeKey].tiles.push({icon,label:name,c:MODES[editModeKey].color});
+  const exeName=execPath?execPath.split(/[\\/]/).pop():null;
+  MODES[editModeKey].tiles.push({
+    icon, label:name, c:MODES[editModeKey].color,
+    execPath: execPath||null,
+    exeName: exeName||null
+  });
   const te_icon=document.getElementById('te-icon-in');
   const te_name=document.getElementById('te-name-in');
-  if(te_icon)te_icon.value='';if(te_name)te_name.value='';
+  const te_path=document.getElementById('te-path-in');
+  if(te_icon)te_icon.value='';
+  if(te_name)te_name.value='';
+  if(te_path)te_path.value='';
   const countEl=document.getElementById('te-tile-count');
   if(countEl)countEl.textContent='('+MODES[editModeKey].tiles.length+')';
   const listEl=document.getElementById('te-tile-list');
@@ -1052,6 +1072,27 @@ function addCustomTile(){
   if(currentMode===editModeKey)renderLauncher(currentMode);
   persistAll();
   toast('Tile added','t-s');
+}
+
+async function browseForAppTile(){
+  if(!LD.isElectron){toast('Browse only works in the installed app','t-w');return;}
+  toast('Opening file browser…','t-i');
+  const app=await LD.browseForApp();
+  if(!app){toast('No app selected','t-w');return;}
+  MODES[editModeKey].tiles.push({
+    icon:app.icon||'📦',
+    label:app.name||app.label,
+    c:MODES[editModeKey].color,
+    execPath:app.execPath,
+    exeName:app.exeName
+  });
+  const countEl=document.getElementById('te-tile-count');
+  if(countEl)countEl.textContent='('+MODES[editModeKey].tiles.length+')';
+  const listEl=document.getElementById('te-tile-list');
+  if(listEl)listEl.innerHTML=renderTileCards(MODES[editModeKey].tiles);
+  if(currentMode===editModeKey)renderLauncher(currentMode);
+  await persistAll();
+  toast('✓ Added '+app.name,'t-s');
 }
 function removeTile(i){
   if(!MODES[editModeKey])return;
@@ -1061,12 +1102,53 @@ function removeTile(i){
   persistAll();
 }
 function editTile(i){
+  // Remove any existing edit panel
+  document.getElementById('tile-edit-inline')?.remove();
   const t=MODES[editModeKey].tiles[i];
-  const newIcon=prompt('New icon emoji (leave blank to keep):','') || t.icon;
-  const newName=prompt('New tile label (leave blank to keep):','') || t.label;
-  MODES[editModeKey].tiles[i]={...t,icon:newIcon,label:newName};
+  const panel=document.createElement('div');
+  panel.id='tile-edit-inline';
+  panel.style.cssText='padding:14px;border-radius:10px;background:rgba(0,200,255,0.06);border:1px solid rgba(0,200,255,0.25);display:flex;flex-direction:column;gap:10px;margin-top:6px';
+  panel.innerHTML=`
+    <div style="font-family:var(--fd);font-size:10px;letter-spacing:2px;color:var(--cyan)">EDIT TILE</div>
+    <div class="add-row" style="gap:8px">
+      <input id="tile-edit-icon" class="txt-in" value="${t.icon||''}" placeholder="Emoji icon"
+        style="width:64px;flex:none;text-align:center;font-size:22px;padding:8px 4px">
+      <input id="tile-edit-name" class="txt-in" value="${t.label||''}" placeholder="Tile name"
+        style="flex:1" onkeydown="if(event.key==='Enter')saveTileEdit(${i})">
+    </div>
+    ${t.execPath && !t.url ? `
+    <label style="display:flex;align-items:center;gap:10px;padding:8px 10px;border-radius:8px;background:rgba(102,192,244,0.05);border:1px solid rgba(102,192,244,0.2);cursor:pointer;user-select:none">
+      <input type="checkbox" id="tile-edit-steam" ${t.requiresSteam?'checked':''} style="width:16px;height:16px;cursor:pointer;accent-color:#66c0f4">
+      <div>
+        <div style="font-family:var(--fd);font-size:10px;letter-spacing:1px;color:#66c0f4">REQUIRES STEAM</div>
+        <div style="font-size:11px;color:var(--muted);font-family:var(--fm)">Launch Steam silently first, hide it from child</div>
+      </div>
+    </label>` : ''}
+    <div style="display:flex;gap:8px">
+      <button class="add-btn" style="flex:1" onclick="saveTileEdit(${i})">✓ SAVE</button>
+      <button class="btn-secondary" onclick="document.getElementById('tile-edit-inline')?.remove()"
+        style="padding:10px 14px">CANCEL</button>
+    </div>`;
+  // Insert after tile list
+  const tileList=document.getElementById('te-tile-list');
+  if(tileList) tileList.after(panel);
+  setTimeout(()=>document.getElementById('tile-edit-name')?.focus(),80);
+}
+
+function saveTileEdit(i){
+  const newIcon=document.getElementById('tile-edit-icon')?.value.trim();
+  const newName=document.getElementById('tile-edit-name')?.value.trim();
+  if(!newName){toast('Tile name cannot be empty','t-w');return;}
+  const t=MODES[editModeKey].tiles[i];
+  const requiresSteam=document.getElementById('tile-edit-steam')?.checked||false;
+  MODES[editModeKey].tiles[i]={...t,icon:newIcon||t.icon,label:newName,requiresSteam:t.url?false:requiresSteam};
+  document.getElementById('tile-edit-inline')?.remove();
+  const countEl=document.getElementById('te-tile-count');
+  if(countEl)countEl.textContent='('+MODES[editModeKey].tiles.length+')';
   document.getElementById('te-tile-list').innerHTML=renderTileCards(MODES[editModeKey].tiles);
   if(currentMode===editModeKey)renderLauncher(currentMode);
+  await persistAll();
+  toast('✓ Tile updated','t-s');
 }
 
 /* ══════════════════════════════════════
@@ -1377,16 +1459,69 @@ function renderUrlChips(urlTiles){
   const modeLabels={explore:'🌍 Explore',exact:'📌 Exact page',open:'🔓 Open'};
   return urlTiles.map(t=>{
     const realIdx=MODES[editModeKey]?.tiles?.indexOf(t);
+    const domain=(t.url||'').replace(/^https?:\/\//,'').split('/')[0];
     return`<div class="chip">
       <span style="font-size:17px">${t.icon||'🌐'}</span>
       <div style="flex:1;overflow:hidden">
         <div class="chip-lbl">${t.label||t.url}</div>
         <div style="font-size:10px;color:var(--muted);font-family:var(--fm)">${modeLabels[t.urlMode||'open']||''} · ${t.url}</div>
       </div>
+      <button class="chip-del" title="Save login for this site"
+        style="color:var(--amber);border-color:rgba(255,184,0,0.3);width:auto;padding:0 8px;font-size:11px"
+        onclick="promptLoginForSite('${domain}')">🔑</button>
       <button class="chip-del" onclick="removeTile(${realIdx})">✕</button>
     </div>`;
   }).join('');
 }
+
+async function promptLoginForSite(domain) {
+  // Check if already saved
+  const existing = LD.isElectron ? await LD.getCreds(domain) : null;
+  const existingHint = existing ? ` (currently saved: ${existing.username})` : '';
+
+  document.getElementById('site-login-inline')?.remove();
+  const panel = document.createElement('div');
+  panel.id = 'site-login-inline';
+  panel.style.cssText = 'padding:14px;border-radius:10px;background:rgba(255,184,0,0.06);border:1px solid rgba(255,184,0,0.25);display:flex;flex-direction:column;gap:10px;margin-top:6px';
+  panel.innerHTML = `
+    <div style="font-family:var(--fd);font-size:10px;letter-spacing:2px;color:var(--amber)">🔑 SAVE LOGIN FOR ${domain.toUpperCase()}${existingHint}</div>
+    <div class="add-row" style="gap:8px">
+      <input id="sli-user" class="txt-in" placeholder="Username or email" style="flex:1" value="${existing?.username||''}">
+    </div>
+    <div class="add-row" style="gap:8px">
+      <input id="sli-pass" class="txt-in" type="password" placeholder="Password" style="flex:1"
+        onkeydown="if(event.key==='Enter')saveSiteLogin('${domain}')">
+    </div>
+    <div style="display:flex;gap:8px">
+      <button class="add-btn" style="flex:1" onclick="saveSiteLogin('${domain}')">✓ SAVE LOGIN</button>
+      ${existing ? `<button onclick="deleteSiteLogin('${domain}')" style="padding:10px 14px;border-radius:9px;border:1px solid rgba(255,61,90,0.3);background:transparent;color:var(--red);font-family:var(--fm);font-size:11px;cursor:pointer">Delete</button>` : ''}
+      <button onclick="document.getElementById('site-login-inline')?.remove()" style="padding:10px 14px;border-radius:9px;border:1px solid var(--border);background:transparent;color:var(--muted);font-family:var(--fm);font-size:11px;cursor:pointer">Cancel</button>
+    </div>`;
+  const urlList = document.getElementById('te-url-list');
+  if (urlList) urlList.after(panel);
+  setTimeout(() => document.getElementById('sli-user')?.focus(), 80);
+}
+
+async function saveSiteLogin(domain) {
+  const user = document.getElementById('sli-user')?.value.trim();
+  const pass = document.getElementById('sli-pass')?.value;
+  if (!user || !pass) { toast('Enter username and password', 't-w'); return; }
+  if (LD.isElectron) await LD.saveCreds(domain, user, pass);
+  document.getElementById('site-login-inline')?.remove();
+  // Refresh url chips to show updated state
+  const m = MODES[editModeKey];
+  document.getElementById('te-url-list').innerHTML = renderUrlChips(m.tiles.filter(t=>t.url));
+  toast('✓ Login saved for ' + domain, 't-s');
+}
+
+async function deleteSiteLogin(domain) {
+  if (LD.isElectron) await LD.deleteCreds(domain);
+  document.getElementById('site-login-inline')?.remove();
+  const m = MODES[editModeKey];
+  document.getElementById('te-url-list').innerHTML = renderUrlChips(m.tiles.filter(t=>t.url));
+  toast('Login deleted', 't-w');
+}
+
 function addUrlTile(){
   const inp=document.getElementById('te-url-in');if(!inp)return;
   let v=inp.value.trim().replace(/^https?:\/\//,'');
@@ -1570,6 +1705,10 @@ const LD = window.labdesk || {
   logActivity:async(e)=>{},
   loadScanCache:async()=>null,
   checkScheduleNow:async()=>{},
+  browseForApp:async()=>null,
+  launchWithSteam:async()=>({success:false,steamFound:false}),
+  startSteamHide:async()=>{},
+  stopSteamHide:async()=>{},
   startAppWatch:async()=>{},
   stopAppWatch:async()=>{},
   onAppClosed:(cb)=>{},
@@ -1592,6 +1731,12 @@ const LD = window.labdesk || {
   onChildSwitched:(cb)=>{},
   onEmergencyPin:(cb)=>{},
   emailRemoteLink:async()=>({url:'http://192.168.1.x:7743'}),
+  saveCreds:async()=>({}),
+  getCreds:async()=>null,
+  listCreds:async()=>[],
+  deleteCreds:async()=>({}),
+  extractCookies:async()=>({cookies:[]}),
+  injectCookies:async()=>({}),
   saveScanCache:async(r)=>{},
   openUrl:async(u)=>{window.open('https://'+u.replace(/^https?:\/\//,''),'_blank');return{success:true};},
   quit:async()=>{}, reload:async()=>location.reload(),
@@ -1691,12 +1836,13 @@ function showTimeLimitReached(modeKey) {
    EXIT GATE bar always visible at top — child presses it to return.
 ══════════════════════════════════════════════════════════════════════════ */
 let activeSession = null;
+let _checkedLoginDomains = new Set(); // tracks domains checked for login save this session
 let activeWebviewUrl = null;
 let currentWebviewConfigs = [];
 
-function enterSession(type, title, icon, execPath, url, urlConfigs) {
+function enterSession(type, title, icon, execPath, url, urlConfigs, requiresSteam) {
   if (activeSession) exitSession();
-  activeSession = { type, title, icon, execPath };
+  activeSession = { type, title, icon, execPath, _requiresSteam: !!requiresSteam };
 
   // Show EXIT GATE bar
   document.getElementById('exit-gate-icon').textContent = icon || (type==='web'?'🌐':'🚀');
@@ -1731,6 +1877,14 @@ function enterSession(type, title, icon, execPath, url, urlConfigs) {
     wv.addEventListener('did-navigate', handleWebviewNav);
     wv.addEventListener('did-navigate-in-page', handleWebviewNav);
     wv.addEventListener('new-window', handleWebviewNewWindow);
+
+    // Try to inject saved login once the page finishes loading
+    const loginDomain = url.replace(/^https?:\/\//, '').split('/')[0];
+    wv.addEventListener('did-finish-load', async function onFirstLoad() {
+      wv.removeEventListener('did-finish-load', onFirstLoad);
+      await tryAutoFill(wv, loginDomain);
+    });
+
     wv.src = url;
   } else {
     document.getElementById('app-overlay-icon').textContent = icon || '🚀';
@@ -1739,7 +1893,17 @@ function enterSession(type, title, icon, execPath, url, urlConfigs) {
     document.getElementById('app-overlay').classList.add('active');
     if (execPath && LD.isElectron) {
       LD.setSessionActive && LD.setSessionActive(execPath);
-      LD.launchApp(execPath);
+      if (activeSession._requiresSteam) {
+        // Steam-contained launch: start Steam silently, launch game, hide Steam UI
+        document.getElementById('app-overlay-hint').textContent = 'Starting Steam… please wait';
+        LD.launchWithSteam(execPath).then(result => {
+          const hint = document.getElementById('app-overlay-hint');
+          if (hint) hint.textContent = result?.steamFound ? 'Running via Steam' : 'Running on this computer';
+        });
+        LD.startSteamHide && LD.startSteamHide();
+      } else {
+        LD.launchApp(execPath);
+      }
       // Watch for app closing itself
       setTimeout(() => LD.startAppWatch && LD.startAppWatch(execPath), 2000);
     }
@@ -1768,6 +1932,13 @@ function handleWebviewNav(e) {
     }, 10000);
   } else {
     activeWebviewUrl = url; // Update safe URL on successful navigation
+    // Check if page has a filled login form — offer to save (once per domain per session)
+    const wvEl = document.getElementById('browser-webview');
+    const navDomain = (() => { try { return new URL(url).hostname.replace(/^www\./, ''); } catch(e) { return ''; } })();
+    if (navDomain && !_checkedLoginDomains.has(navDomain)) {
+      _checkedLoginDomains.add(navDomain);
+      setTimeout(() => checkAndOfferLoginSave(wvEl, navDomain), 2500);
+    }
   }
 }
 
@@ -1776,6 +1947,103 @@ function handleWebviewNewWindow(e) {
   const wv = document.getElementById('browser-webview');
   if (check.ok) { try { wv.loadURL(e.url); } catch(err) {} }
   else showWebBlocked(e.url, check.r);
+}
+
+// ── Auto-fill login credentials ──
+async function tryAutoFill(wv, domain) {
+  if (!LD.isElectron) return;
+  try {
+    const cred = await LD.getCreds(domain);
+    if (!cred) return;
+    // Inject a script that waits for login form and fills it
+    const script = `
+      (function() {
+        function tryFill() {
+          const userFields = document.querySelectorAll('input[type="text"], input[type="email"], input[name*="user"], input[name*="email"], input[id*="user"], input[id*="email"], input[autocomplete*="username"], input[autocomplete*="email"]');
+          const passFields = document.querySelectorAll('input[type="password"]');
+          if (userFields.length > 0 && passFields.length > 0) {
+            const uf = userFields[0];
+            const pf = passFields[0];
+            // Only fill if empty (don't overwrite partial entry)
+            if (!uf.value && !pf.value) {
+              const nativeInputValueSetter = Object.getOwnPropertyDescriptor(window.HTMLInputElement.prototype, 'value').set;
+              nativeInputValueSetter.call(uf, ${JSON.stringify(cred.username)});
+              uf.dispatchEvent(new Event('input', { bubbles: true }));
+              nativeInputValueSetter.call(pf, ${JSON.stringify(cred.password)});
+              pf.dispatchEvent(new Event('input', { bubbles: true }));
+              console.log('[BrightGate] Credentials auto-filled');
+            }
+          }
+        }
+        // Try immediately, then wait for dynamic forms
+        tryFill();
+        setTimeout(tryFill, 800);
+        setTimeout(tryFill, 2000);
+      })();
+    `;
+    await wv.executeJavaScript(script);
+  } catch(e) {
+    console.log('[AutoFill] Could not inject:', e.message);
+  }
+}
+
+// Check if page has a login form and offer to save credentials
+async function checkAndOfferLoginSave(wv, domain) {
+  if (!LD.isElectron) return;
+  // Don't offer if we already have saved creds for this domain
+  const existing = await LD.getCreds(domain);
+  if (existing) return;
+  try {
+    // Detect if the page has a password field that was filled
+    const hasLoginForm = await wv.executeJavaScript(`
+      (function() {
+        const passFields = document.querySelectorAll('input[type="password"]');
+        const hasValue = Array.from(passFields).some(p => p.value && p.value.length > 0);
+        return passFields.length > 0 && hasValue;
+      })()
+    `);
+    if (hasLoginForm) showSaveLoginPrompt(domain);
+  } catch(e) {}
+}
+
+let _saveLoginDomain = null;
+function showSaveLoginPrompt(domain) {
+  document.getElementById('save-login-banner')?.remove();
+  _saveLoginDomain = domain;
+  const banner = document.createElement('div');
+  banner.id = 'save-login-banner';
+  banner.style.cssText = 'position:fixed;bottom:60px;left:50%;transform:translateX(-50%);z-index:900;padding:12px 18px;border-radius:14px;background:rgba(10,18,32,0.96);border:1px solid rgba(255,184,0,0.35);display:flex;align-items:center;gap:12px;backdrop-filter:blur(8px);font-family:var(--fm);font-size:12px;white-space:nowrap;animation:toastIn .3s ease';
+  banner.innerHTML = `
+    <span style="font-size:18px">🔑</span>
+    <span style="color:var(--text)">Save login for <strong style="color:var(--amber)">${domain}</strong>?</span>
+    <button onclick="doSaveLoginFromPage()" style="padding:6px 14px;border-radius:8px;border:none;background:linear-gradient(135deg,#c48800,#ffb800);color:#040810;font-family:var(--fd);font-size:9px;font-weight:700;letter-spacing:1px;cursor:pointer">SAVE</button>
+    <button onclick="document.getElementById('save-login-banner')?.remove()" style="padding:6px 12px;border-radius:8px;border:1px solid var(--border);background:transparent;color:var(--muted);font-family:var(--fm);font-size:11px;cursor:pointer">Not now</button>`;
+  document.body.appendChild(banner);
+  setTimeout(() => banner.remove(), 15000);
+}
+
+async function doSaveLoginFromPage() {
+  document.getElementById('save-login-banner')?.remove();
+  const domain = _saveLoginDomain;
+  if (!domain) return;
+  const wv = document.getElementById('browser-webview');
+  try {
+    const creds = await wv.executeJavaScript(`
+      (function() {
+        const uf = document.querySelector('input[type="email"], input[type="text"], input[name*="user"], input[id*="user"]');
+        const pf = document.querySelector('input[type="password"]');
+        return { u: uf ? uf.value : '', p: pf ? pf.value : '' };
+      })()
+    `);
+    if (!creds.u || !creds.p) {
+      toast('Could not read credentials — enter them manually in Saved Logins', 't-w');
+      return;
+    }
+    if (LD.isElectron) await LD.saveCreds(domain, creds.u, creds.p);
+    toast('✓ Login saved for ' + domain, 't-s');
+  } catch(e) {
+    toast('Could not save — enter manually in Saved Logins', 't-w');
+  }
 }
 
 function checkUrlClient(url, configs) {
@@ -1841,6 +2109,7 @@ function exitSession() {
   if (activeSession.type === 'app' && LD.isElectron) {
     LD.stopAppWatch && LD.stopAppWatch();
     LD.setSessionActive && LD.setSessionActive(null);
+    if (activeSession._requiresSteam) LD.stopSteamHide && LD.stopSteamHide();
     if (activeSession.execPath) LD.killApp(activeSession.execPath).catch(() => {});
   }
   // Clean up webview
@@ -1873,6 +2142,7 @@ function exitSession() {
   activeSession = null;
   activeWebviewUrl = null;
   currentWebviewConfigs = [];
+  _checkedLoginDomains = new Set(); // reset for next session
 }
 
 // Add fade-in animation for session overlays
@@ -1955,11 +2225,12 @@ function renderPanelModes(){
       <button class="mode-row-sw" style="border-color:rgba(0,200,255,0.35);color:var(--cyan)" onclick="showActivityLog()">📋 Activity Log</button>
       <button class="mode-row-sw" style="border-color:rgba(176,96,255,0.35);color:var(--purple)" onclick="showTimeLimitsPanel()">⏱ Time Limits</button>
       <button class="mode-row-sw" style="border-color:rgba(0,200,255,0.35);color:var(--cyan)" onclick="changePinFlow()">🔑 Change PIN</button>
-      <button class="mode-row-sw" style="border-color:rgba(176,96,255,0.35);color:var(--purple)" onclick="toggleKioskFlow()">🖥 Kiosk ${appData?.kioskMode?'ON':'OFF'}</button>
-      <button class="mode-row-sw" style="border-color:rgba(0,255,136,0.35);color:var(--green)" onclick="toggleStartupFlow()">⚡ Auto-Start</button>
-      <button class="mode-row-sw" id="blocking-btn" style="border-color:rgba(255,184,0,0.35);color:var(--amber)" onclick="toggleBlocking()">${appData?.blockingEnabled!==false?'🛡 Blocking ON':'🛡 Blocking OFF'}</button>
+      <button class="mode-row-sw" style="border-color:rgba(176,96,255,0.35);color:${appData?.kioskMode?'var(--purple)':'var(--muted)'}" onclick="toggleKioskFlow()">🖥 Kiosk ${appData?.kioskMode?'ON ✓':'OFF'}</button>
+      <button class="mode-row-sw" style="border-color:rgba(0,255,136,0.35);color:${appData?.startWithWindows?'var(--green)':'var(--muted)'}" onclick="toggleStartupFlow()">⚡ Auto-Start ${appData?.startWithWindows?'ON ✓':'OFF'}</button>
+      <button class="mode-row-sw" id="blocking-btn" style="border-color:rgba(255,184,0,0.35);color:${appData?.blockingEnabled!==false?'var(--amber)':'var(--muted)'}" onclick="toggleBlocking()">${appData?.blockingEnabled!==false?'🛡 Blocking ON ✓':'🔓 Blocking OFF'}</button>
       <button class="mode-row-sw" style="border-color:rgba(0,200,255,0.35);color:var(--cyan)" onclick="manualCheckUpdate()">🔄 Check for Updates</button>
       <button class="mode-row-sw" style="border-color:rgba(0,255,136,0.35);color:var(--green)" onclick="showRemotePanel()">📱 Phone Remote</button>
+      <button class="mode-row-sw" style="border-color:rgba(255,184,0,0.35);color:var(--amber)" onclick="showSavedLogins()">🔑 Saved Logins</button>
       ${LD.isElectron?'<button class="mode-row-sw" style="border-color:rgba(255,61,90,0.35);color:var(--red)" onclick="quitApp()">✕ Exit BrightGate</button>':''}
     </div></div>`;
   pb.appendChild(d);
@@ -2169,6 +2440,79 @@ async function removeChild(childId) {
   toast('Child profile removed', 't-w');
   openChildManager();
 }
+
+/* ── Saved Logins Manager ── */
+async function showSavedLogins() {
+  closeOverlay('parent-panel');
+  const creds = LD.isElectron ? await LD.listCreds() : [];
+  const existing = document.getElementById('logins-overlay');
+  if (existing) existing.remove();
+  const ov = document.createElement('div');
+  ov.id = 'logins-overlay';
+  ov.style.cssText = 'position:fixed;inset:0;z-index:400;display:flex;align-items:center;justify-content:center;background:rgba(0,0,0,0.88);backdrop-filter:blur(10px)';
+
+  const rows = creds.length === 0
+    ? '<div style="text-align:center;color:var(--muted);font-family:var(--fm);padding:24px">No saved logins yet.<br>Open a website tile and BrightGate will offer to save the login.</div>'
+    : creds.map(c => `
+      <div style="display:flex;align-items:center;gap:10px;padding:10px 12px;border-radius:9px;background:rgba(0,200,255,0.04);border:1px solid var(--border)">
+        <span style="font-size:20px">🌐</span>
+        <div style="flex:1">
+          <div style="font-size:13px;font-weight:700">${c.domain}</div>
+          <div style="font-size:11px;color:var(--muted);font-family:var(--fm)">${c.username} · saved ${new Date(c.savedAt).toLocaleDateString()}</div>
+        </div>
+        <button onclick="editSavedLogin('${c.domain}')" style="padding:5px 10px;border-radius:7px;border:1px solid rgba(255,184,0,0.3);background:transparent;color:var(--amber);font-family:var(--fm);font-size:10px;cursor:pointer">Edit</button>
+        <button onclick="deleteSavedLogin('${c.domain}')" style="padding:5px 10px;border-radius:7px;border:1px solid rgba(255,61,90,0.3);background:transparent;color:var(--red);font-family:var(--fm);font-size:10px;cursor:pointer">Delete</button>
+      </div>`).join('');
+
+  ov.innerHTML = `
+    <div style="background:linear-gradient(160deg,#0a1a2e,#070e1c);border:1px solid rgba(255,184,0,0.25);border-radius:18px;padding:28px 32px;width:440px;max-height:80vh;display:flex;flex-direction:column;gap:14px;overflow-y:auto">
+      <div style="font-family:var(--fd);font-size:12px;letter-spacing:3px;color:var(--amber);text-align:center">🔑 SAVED WEBSITE LOGINS</div>
+      <div style="font-size:12px;color:var(--muted);text-align:center;font-family:var(--fm)">BrightGate will automatically log children in to these sites</div>
+      <div style="display:flex;flex-direction:column;gap:8px">${rows}</div>
+      <div class="divider"></div>
+      <div style="font-family:var(--fd);font-size:10px;letter-spacing:2px;color:var(--muted)">ADD LOGIN MANUALLY</div>
+      <div style="display:flex;flex-direction:column;gap:8px">
+        <input id="login-domain" class="txt-in" placeholder="Website e.g. ixl.com">
+        <input id="login-user" class="txt-in" placeholder="Username or email">
+        <input id="login-pass" class="txt-in" type="password" placeholder="Password" onkeydown="if(event.key==='Enter')saveManualLogin()">
+        <button onclick="saveManualLogin()" class="add-btn" style="width:100%">+ SAVE LOGIN</button>
+      </div>
+      <button onclick="document.getElementById('logins-overlay').remove();openOverlay('parent-panel');renderPanelModes();"
+        style="padding:10px;border-radius:10px;border:1px solid var(--border);background:transparent;color:var(--muted);font-family:var(--fd);font-size:10px;cursor:pointer">CLOSE</button>
+    </div>`;
+  document.body.appendChild(ov);
+}
+
+async function saveManualLogin() {
+  const domain = document.getElementById('login-domain')?.value.trim().replace(/^https?:\/\//, '').split('/')[0];
+  const user = document.getElementById('login-user')?.value.trim();
+  const pass = document.getElementById('login-pass')?.value;
+  if (!domain || !user || !pass) { toast('Fill in all fields', 't-w'); return; }
+  if (LD.isElectron) await LD.saveCreds(domain, user, pass);
+  toast('✓ Login saved for ' + domain, 't-s');
+  showSavedLogins(); // Refresh
+}
+
+async function deleteSavedLogin(domain) {
+  if (!confirm('Delete saved login for ' + domain + '?')) return;
+  if (LD.isElectron) await LD.deleteCreds(domain);
+  toast('Login deleted', 't-w');
+  showSavedLogins();
+}
+
+async function editSavedLogin(domain) {
+  const cred = LD.isElectron ? await LD.getCreds(domain) : null;
+  if (!cred) return;
+  const inp = document.getElementById('login-domain');
+  const usr = document.getElementById('login-user');
+  const pw = document.getElementById('login-pass');
+  if (inp) inp.value = domain;
+  if (usr) usr.value = cred.username;
+  if (pw) pw.value = cred.password;
+  document.getElementById('login-domain').scrollIntoView({ behavior: 'smooth' });
+}
+
+// Auto-inject credentials when a website session starts
 
 /* ── Phone Remote Panel ── */
 async function showRemotePanel(){
@@ -2446,25 +2790,39 @@ async function manualCheckUpdate(){
 async function toggleBlocking(){
   if(!LD.isElectron){toast('Blocking only works in the installed app','t-w');return;}
   const cur=appData?.blockingEnabled!==false;
-  await LD.setBlocking(!cur);
-  if(appData)appData.blockingEnabled=!cur;
-  const btn=document.getElementById('blocking-btn');
-  if(btn)btn.textContent=(!cur?'🛡 Blocking ON':'🛡 Blocking OFF');
-  toast((!cur?'🛡 App blocking enabled':'🛡 App blocking disabled'),'t-i');
+  const next=!cur;
+  await LD.setBlocking(next);
+  if(appData) appData.blockingEnabled=next;
+  await persistAll();
+  toast(next?'🛡 App blocking ON':'🔓 App blocking OFF','t-i');
+  renderPanelModes(); // Refresh so button label updates
 }
 
 async function toggleKioskFlow(){
   if(!LD.isElectron){toast('Open the app via npm start to use kiosk mode','t-w');return;}
   const cur=appData?.kioskMode||false;
-  await LD.setKiosk(!cur);
-  if(appData)appData.kioskMode=!cur;
-  toast((cur?'Kiosk mode disabled':'Kiosk mode enabled')+' — restart BrightGate to apply','t-i');
+  const next=!cur;
+  // Suppress blur refocus while dialog is open
+  LD.setParentOpen&&LD.setParentOpen(true);
+  await LD.setKiosk(next);
+  if(appData) appData.kioskMode=next;
+  await persistAll();
+  LD.setParentOpen&&LD.setParentOpen(true); // Keep open after dialog dismissal
+  toast((next?'🖥 Kiosk mode ON':'🖥 Kiosk mode OFF')+' — restart to apply','t-i');
+  // Refresh panel so button label updates
+  renderPanelModes();
 }
 
 async function toggleStartupFlow(){
   if(!LD.isElectron){toast('Only works in the installed app','t-w');return;}
-  await LD.setStartup(true);
-  toast('✓ BrightGate set to launch on Windows startup','t-s');
+  const cur=appData?.startWithWindows||false;
+  const next=!cur;
+  const result=await LD.setStartup(next);
+  if(result&&result.success===false){toast('Failed to change startup setting','t-w');return;}
+  if(appData) appData.startWithWindows=next;
+  await persistAll();
+  toast(next?'⚡ Will launch on Windows startup':'⚡ Removed from Windows startup','t-s');
+  renderPanelModes();
 }
 
 async function quitApp(){closeOverlay('parent-panel');await LD.quit();}
@@ -2514,7 +2872,7 @@ function renderLauncher(mode){
       if(activeSession){ toast('Exit current session first','t-w'); return; }
       if(t.execPath){
         // Launch app — show app overlay within BrightGate
-        enterSession('app', t.label, t.icon||'🚀', t.execPath, null, null);
+        enterSession('app', t.label, t.icon||'🚀', t.execPath, null, null, t.requiresSteam);
       } else if(t.url){
         // Open website — load in in-window browser panel
         const modeConfigs=(MODES[mode]?.urlConfigs||[]);

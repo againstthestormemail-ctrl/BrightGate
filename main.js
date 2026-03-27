@@ -1,7 +1,7 @@
 /**
  * BrightGate — main.js
  * Electron main process
- * v1.6.0
+ * v1.6.6
  */
 
 const { app, BrowserWindow, ipcMain, globalShortcut, dialog, shell, session } = require('electron');
@@ -21,7 +21,7 @@ function getLocalIP() {
   return '127.0.0.1';
 }
 
-const CURRENT_VERSION = '1.6.0';
+const CURRENT_VERSION = '1.6.6';
 
 // ─── DATA ─────────────────────────────────────────────────────────────────────
 const userDataPath = app.getPath('userData');
@@ -165,27 +165,61 @@ function killProcess(pid, name) {
   }
 }
 
+// ── Process list helpers — CIM preferred, tasklist fallback ──
+function getProcessListCIM() {
+  // Get-CimInstance replaces WMIC (deprecated in Win11). Returns JSON array.
+  const ps = `Get-CimInstance Win32_Process | Select-Object Name,ProcessId | ConvertTo-Json -Compress`;
+  const out = execSync(
+    `powershell -NoProfile -NonInteractive -Command "${ps}"`,
+    { encoding: 'utf8', timeout: 8000, stdio: ['pipe','pipe','ignore'] }
+  ).trim();
+  const arr = JSON.parse(out);
+  // ConvertTo-Json may return a single object if only one process — normalise
+  return Array.isArray(arr) ? arr : [arr];
+}
+
+function getProcessListTasklist() {
+  // Fallback: tasklist CSV — always available, slower
+  const out = execSync(
+    'tasklist /FO CSV /NH',
+    { encoding: 'utf8', timeout: 8000, stdio: ['pipe','pipe','ignore'] }
+  ).trim();
+  return out.split('\n')
+    .map(l => l.trim().replace(/"/g, '').split(','))
+    .filter(p => p.length >= 2)
+    .map(p => ({ Name: p[0], ProcessId: parseInt(p[1]) }))
+    .filter(p => p.Name && !isNaN(p.ProcessId));
+}
+
+function getProcessList() {
+  try {
+    return getProcessListCIM();
+  } catch(e) {
+    console.warn('[Monitor] CIM failed, falling back to tasklist:', e.message);
+    try {
+      return getProcessListTasklist();
+    } catch(e2) {
+      console.error('[Monitor] Both process list methods failed:', e2.message);
+      return [];
+    }
+  }
+}
+
 function runMonitorCycle() {
   if (!isMonitoring) return;
   try {
-    // Get all running processes with PIDs
-    const output = execSync(
-      'wmic process get Name,ProcessId /format:csv',
-      { encoding: 'utf8', timeout: 5000, stdio: ['pipe','pipe','ignore'] }
-    );
-    const lines = output.split('\n').filter(l => l.trim() && !l.startsWith('Node'));
-    for (const line of lines) {
-      const parts = line.split(',');
-      if (parts.length < 3) continue;
-      const name = (parts[1] || '').trim().toLowerCase();
-      const pid = parseInt((parts[2] || '').trim());
+    const processes = getProcessList();
+    for (const proc of processes) {
+      const name = (proc.Name || '').toLowerCase().trim();
+      const pid = proc.ProcessId;
       if (!name || !pid || isNaN(pid)) continue;
       if (!isProcessAllowed(name)) {
         killProcess(pid, name);
       }
     }
   } catch(e) {
-    // wmic may fail occasionally — not critical
+    // Monitor cycle failure is non-fatal — next cycle will retry
+    console.warn('[Monitor] Cycle error:', e.message);
   }
 }
 
@@ -577,11 +611,38 @@ function startRestApi() {
     // All API endpoints require PIN auth
     res.setHeader('Content-Type', 'application/json');
     const pin = req.headers['x-brightgate-pin'];
-    if (!pin || pin !== appData.pin) {
-      res.writeHead(401);
-      res.end(JSON.stringify({ error: 'Invalid PIN' }));
+    const clientIP = req.socket.remoteAddress || 'unknown';
+
+    // Rate limit: track failed PIN attempts per IP
+    if (!restServer._failedAttempts) restServer._failedAttempts = {};
+    if (!restServer._lockoutUntil)   restServer._lockoutUntil   = {};
+
+    const now = Date.now();
+    const lockedUntil = restServer._lockoutUntil[clientIP] || 0;
+    if (lockedUntil > now) {
+      const secsLeft = Math.ceil((lockedUntil - now) / 1000);
+      res.writeHead(429);
+      res.end(JSON.stringify({ error: `Too many attempts — locked for ${secsLeft}s` }));
       return;
     }
+
+    if (!pin || pin !== appData.pin) {
+      // Track failed attempt
+      restServer._failedAttempts[clientIP] = (restServer._failedAttempts[clientIP] || 0) + 1;
+      if (restServer._failedAttempts[clientIP] >= 5) {
+        restServer._lockoutUntil[clientIP] = now + 10 * 60 * 1000; // 10 min lockout
+        restServer._failedAttempts[clientIP] = 0;
+        console.warn(`[REST] IP ${clientIP} locked out for 10 minutes after 5 failed PIN attempts`);
+        // Push notification to parent
+        if (restServer._push) restServer._push('remotePinLockout', { ip: clientIP, lockedUntil: restServer._lockoutUntil[clientIP] });
+      }
+      res.writeHead(401);
+      res.end(JSON.stringify({ error: 'Invalid PIN', attemptsRemaining: Math.max(0, 5 - (restServer._failedAttempts[clientIP] || 0)) }));
+      return;
+    }
+
+    // Successful auth — reset failed attempts for this IP
+    restServer._failedAttempts[clientIP] = 0;
 
     let body = '';
     req.on('data', chunk => { body += chunk; });
@@ -600,12 +661,18 @@ function startRestApi() {
   restServer._sseClients = sseClients;
   restServer._push = pushNotification;
 
-  restServer.listen(7743, '127.0.0.1', () => {
-    console.log('[BrightGate] REST API listening on localhost:7743');
+  restServer.listen(7743, '0.0.0.0', () => {
+    const ip = getLocalIP();
+    console.log(`[BrightGate] REST API listening on ${ip}:7743 (LAN accessible)`);
   });
 
   restServer.on('error', (e) => {
     console.error('[BrightGate] REST API error:', e.message);
+    // If port is in use, try alternate port
+    if (e.code === 'EADDRINUSE') {
+      console.warn('[BrightGate] Port 7743 in use — retrying on 7744');
+      restServer.listen(7744, '0.0.0.0');
+    }
   });
 }
 
@@ -691,16 +758,21 @@ function handleRestRequest(method, url, body, res) {
 
   // POST /timelimit — set daily time limit for a mode
   if (method === 'POST' && url === '/timelimit') {
-    const { mode, minutes } = body;
+    const { mode, minutes, childId } = body;
     if (!mode || typeof minutes !== 'number') { send(400, { error: 'mode and minutes required' }); return; }
-    if (!appData.timeLimits) appData.timeLimits = {};
-    if (minutes <= 0) delete appData.timeLimits[mode];
-    else appData.timeLimits[mode] = Math.round(minutes);
+    // Route to specified child or active child
+    const targetChild = childId
+      ? (appData.children || []).find(c => c.id === childId)
+      : activeChild();
+    if (!targetChild) { send(404, { error: 'Child not found' }); return; }
+    if (!targetChild.timeLimits) targetChild.timeLimits = {};
+    if (minutes <= 0) delete targetChild.timeLimits[mode];
+    else targetChild.timeLimits[mode] = Math.round(minutes);
     saveData(appData);
     if (mainWindow && !mainWindow.isDestroyed()) {
-      mainWindow.webContents.send('remote:timeLimitsChange', appData.timeLimits);
+      mainWindow.webContents.send('remote:timeLimitsChange', targetChild.timeLimits);
     }
-    send(200, { ok: true, timeLimits: appData.timeLimits });
+    send(200, { ok: true, timeLimits: targetChild.timeLimits });
     return;
   }
 
@@ -778,27 +850,32 @@ ipcMain.handle('app:launch', (e, execPath) => {
 
 ipcMain.handle('app:kill', (e, execPath) => {
   try {
-    // Use WMIC to find PID matching exact full path — avoids killing wrong process with same exe name
-    // Escape backslashes AND wrap in proper WMIC quotes for paths with spaces
-    const safePath = execPath.replace(/\\/g, '\\\\').replace(/'/g, "\\'");
+    // Use Get-CimInstance to find PID by exact executable path (WMIC deprecated in Win11)
+    const safePathPs = execPath.replace(/'/g, "''"); // PowerShell single-quote escape
+    const ps = `Get-CimInstance Win32_Process | Where-Object { $_.ExecutablePath -eq '${safePathPs}' } | Select-Object ProcessId | ConvertTo-Json -Compress`;
     const out = execSync(
-      `wmic process where "ExecutablePath='${safePath}'" get ProcessId /format:csv`,
+      `powershell -NoProfile -NonInteractive -Command "${ps}"`,
       { encoding: 'utf8', timeout: 5000, stdio: ['pipe','pipe','ignore'] }
-    );
-    const pids = out.split('\n')
-      .map(l => parseInt(l.split(',').pop()))
-      .filter(n => !isNaN(n) && n > 0);
-    for (const pid of pids) {
-      try { execSync(`taskkill /PID ${pid} /F /T`, { stdio: 'ignore', timeout: 3000 }); } catch(e) {}
+    ).trim();
+    if (out) {
+      const result = JSON.parse(out);
+      const items = Array.isArray(result) ? result : [result];
+      for (const item of items) {
+        const pid = item.ProcessId;
+        if (pid) {
+          try { execSync(`taskkill /PID ${pid} /F /T`, { stdio: 'ignore', timeout: 3000 }); } catch(e) {}
+        }
+      }
     }
     return { success: true };
   } catch(err) {
-    // Fallback: kill by exe name
+    // Fallback: kill by exe name (less precise but reliable)
     try {
       const exeName = path.basename(execPath);
       execSync(`taskkill /F /IM "${exeName}" /T`, { stdio: 'ignore', timeout: 3000 });
+      return { success: true, method: 'name-fallback' };
     } catch(e) {}
-    return { success: false };
+    return { success: false, error: err.message };
   }
 });
 
@@ -824,6 +901,47 @@ ipcMain.handle('activity:log', (e, entry) => {
   if (target.activityLog.length > 500) target.activityLog = target.activityLog.slice(0, 500);
   saveData(appData);
   return true;
+});
+
+// ─── MANUAL APP REGISTRATION ─────────────────────────────────────────────────
+
+// Browse for EXE — opens file dialog, returns app info
+ipcMain.handle('app:browse', async () => {
+  const result = await dialog.showOpenDialog(mainWindow, {
+    title: 'Select Application',
+    filters: [
+      { name: 'Applications', extensions: ['exe'] },
+      { name: 'All Files', extensions: ['*'] }
+    ],
+    properties: ['openFile']
+  });
+  if (result.canceled || !result.filePaths.length) return null;
+  const exePath = result.filePaths[0];
+  const exeName = path.basename(exePath, '.exe');
+  // Try to get file description from PowerShell
+  let label = exeName;
+  let icon = '📦';
+  try {
+    const ps = `(Get-Item '${exePath.replace(/'/g, "''")}').VersionInfo.FileDescription`;
+    const desc = execSync(
+      `powershell -NoProfile -NonInteractive -Command "${ps}"`,
+      { encoding: 'utf8', timeout: 3000, stdio: ['pipe','pipe','ignore'] }
+    ).trim();
+    if (desc && desc.length > 0 && desc.length < 80) label = desc;
+  } catch(e) {}
+  // Auto-detect if this exe lives inside a Steam library — flag requiresSteam
+  const isSteamGame = exePath.toLowerCase().includes('steamapps') ||
+                      exePath.toLowerCase().includes('steam\\games');
+
+  return {
+    name: label,
+    label,
+    execPath: exePath,
+    exeName: path.basename(exePath),
+    icon,
+    requiresSteam: isSteamGame,
+    source: 'manual'
+  };
 });
 
 // App scan cache — store results to avoid re-scanning every time
@@ -864,14 +982,17 @@ ipcMain.handle('blocking:set', (e, enabled) => {
   return true;
 });
 
-ipcMain.handle('settings:setKiosk', (e, enabled) => {
+ipcMain.handle('settings:setKiosk', async (e, enabled) => {
   appData.kioskMode = enabled;
   saveData(appData);
-  dialog.showMessageBox(mainWindow, {
+  // Make sure blur refocus doesn't steal the window while dialog is showing
+  parentPanelOpen = true;
+  await dialog.showMessageBox(mainWindow, {
     type: 'info', title: 'BrightGate',
-    message: 'Kiosk mode change takes effect after restarting BrightGate.',
+    message: `Kiosk mode ${enabled ? 'enabled' : 'disabled'} — restart BrightGate to apply the change.`,
     buttons: ['OK']
   });
+  parentPanelOpen = false;
   return true;
 });
 
@@ -966,14 +1087,26 @@ ipcMain.handle('appwatch:start', (e, exePath) => {
   appWatchInterval = setInterval(() => {
     if (!watchingExePath) { clearInterval(appWatchInterval); return; }
     try {
-      const exeName = path.basename(watchingExePath).replace(/'/g, '');
-      const out = execSync(
-        `tasklist /FI "IMAGENAME eq ${exeName}" /FO CSV /NH`,
-        { encoding: 'utf8', timeout: 3000, stdio: ['pipe','pipe','ignore'] }
-      ).trim();
-      const isRunning = out.toLowerCase().includes(exeName.toLowerCase()) && !out.includes('No tasks');
+      // Try CIM first, fall back to tasklist
+      let isRunning = false;
+      try {
+        const safePs = watchingExePath.replace(/'/g, "''");
+        const ps = `(Get-CimInstance Win32_Process | Where-Object { $_.ExecutablePath -eq '${safePs}' } | Measure-Object).Count`;
+        const countOut = execSync(
+          `powershell -NoProfile -NonInteractive -Command "${ps}"`,
+          { encoding: 'utf8', timeout: 3000, stdio: ['pipe','pipe','ignore'] }
+        ).trim();
+        isRunning = parseInt(countOut) > 0;
+      } catch(e) {
+        // Tasklist fallback
+        const exeName = path.basename(watchingExePath).replace(/['"]/g, '');
+        const out = execSync(
+          `tasklist /FI "IMAGENAME eq ${exeName}" /FO CSV /NH`,
+          { encoding: 'utf8', timeout: 3000, stdio: ['pipe','pipe','ignore'] }
+        ).trim();
+        isRunning = out.toLowerCase().includes(exeName.toLowerCase()) && !out.includes('No tasks');
+      }
       if (!isRunning) {
-        // App closed by itself — notify renderer to exit session
         clearInterval(appWatchInterval);
         appWatchInterval = null;
         watchingExePath = null;
@@ -981,7 +1114,7 @@ ipcMain.handle('appwatch:start', (e, exePath) => {
           mainWindow.webContents.send('app:closedExternally');
         }
       }
-    } catch(e) { /* tasklist may fail occasionally */ }
+    } catch(e) { /* Watch cycle non-fatal */ }
   }, 2000);
   return true;
 });
@@ -994,12 +1127,150 @@ ipcMain.handle('appwatch:stop', () => {
 });
 
 // Time limit management IPC
-ipcMain.handle('remote:getStatus', () => ({
-  currentMode: appData.currentMode,
-  blocking: appData.blockingEnabled,
-  timeLimits: appData.timeLimits || {},
-  usageToday: appData.usageToday || {}
-}));
+ipcMain.handle('remote:getStatus', () => {
+  const child = activeChild();
+  return {
+    currentMode: child?.currentMode || 'locked',
+    blocking: appData.blockingEnabled,
+    timeLimits: child?.timeLimits || {},
+    usageToday: child?.usageToday || {}
+  };
+});
+
+// ─── STEAM CONTAINMENT ────────────────────────────────────────────────────────
+// When a tile is flagged requiresSteam, we:
+//   1. Find Steam.exe on this machine
+//   2. Launch Steam minimised (if not already running)
+//   3. Wait up to 8s for Steam to be ready
+//   4. Launch the game exe
+//   5. Watch for and hide any Steam window the child tries to open
+
+const STEAM_REGISTRY_KEYS = [
+  'HKLM\\SOFTWARE\\Valve\\Steam',
+  'HKLM\\SOFTWARE\\WOW6432Node\\Valve\\Steam',
+  'HKCU\\SOFTWARE\\Valve\\Steam',
+];
+
+const STEAM_DEFAULT_PATHS = [
+  'C:\\Program Files (x86)\\Steam\\steam.exe',
+  'C:\\Program Files\\Steam\\steam.exe',
+];
+
+function findSteamExe() {
+  // 1. Try registry
+  for (const key of STEAM_REGISTRY_KEYS) {
+    try {
+      const out = execSync(
+        `reg query "${key}" /v InstallPath`,
+        { encoding: 'utf8', timeout: 3000, stdio: ['pipe','pipe','ignore'] }
+      ).trim();
+      const match = out.match(/InstallPath\s+REG_SZ\s+(.+)/i);
+      if (match) {
+        const installPath = match[1].trim();
+        const steamExe = path.join(installPath, 'steam.exe');
+        if (fs.existsSync(steamExe)) return steamExe;
+      }
+    } catch(e) {}
+  }
+  // 2. Try default paths
+  for (const p of STEAM_DEFAULT_PATHS) {
+    if (fs.existsSync(p)) return p;
+  }
+  return null;
+}
+
+function isSteamRunning() {
+  try {
+    const ps = `(Get-CimInstance Win32_Process | Where-Object { $_.Name -eq 'steam.exe' } | Measure-Object).Count`;
+    const out = execSync(
+      `powershell -NoProfile -NonInteractive -Command "${ps}"`,
+      { encoding: 'utf8', timeout: 3000, stdio: ['pipe','pipe','ignore'] }
+    ).trim();
+    return parseInt(out) > 0;
+  } catch(e) {
+    try {
+      const out = execSync('tasklist /FI "IMAGENAME eq steam.exe" /FO CSV /NH',
+        { encoding: 'utf8', timeout: 3000, stdio: ['pipe','pipe','ignore'] }).trim();
+      return out.toLowerCase().includes('steam.exe') && !out.includes('No tasks');
+    } catch(e2) { return false; }
+  }
+}
+
+// Hide Steam window using PowerShell (SW_MINIMIZE = 6, SW_HIDE = 0)
+function hideSteamWindow() {
+  try {
+    const ps = `
+      Add-Type -TypeDefinition @"
+        using System; using System.Runtime.InteropServices;
+        public class Win32 {
+          [DllImport("user32.dll")] public static extern bool ShowWindow(IntPtr hWnd, int nCmdShow);
+          [DllImport("user32.dll")] public static extern IntPtr FindWindow(string lpClassName, string lpWindowName);
+        }
+"@
+      $hwnd = [Win32]::FindWindow("vguiPopupWindow", "Steam")
+      if ($hwnd -ne [IntPtr]::Zero) { [Win32]::ShowWindow($hwnd, 0) }
+      $hwnd2 = [Win32]::FindWindow("SDL_app", $null)
+      if ($hwnd2 -ne [IntPtr]::Zero) { [Win32]::ShowWindow($hwnd2, 0) }
+    `;
+    execSync(`powershell -NoProfile -NonInteractive -Command "${ps.replace(/\n/g,' ')}"`,
+      { timeout: 3000, stdio: 'ignore' });
+  } catch(e) {}
+}
+
+let steamHideInterval = null;
+
+ipcMain.handle('app:launchWithSteam', async (e, gameExePath) => {
+  try {
+    const steamExe = findSteamExe();
+    if (!steamExe) {
+      // Steam not found — try launching game directly anyway
+      console.warn('[Steam] Steam.exe not found — launching game directly');
+      shell.openPath(gameExePath);
+      return { success: true, steamFound: false };
+    }
+
+    // Start Steam minimised if not already running
+    if (!isSteamRunning()) {
+      console.log('[Steam] Launching Steam minimised...');
+      exec(`"${steamExe}" -silent`, (err) => {
+        if (err) console.warn('[Steam] Launch error:', err.message);
+      });
+      // Wait for Steam to initialise (up to 8s)
+      let waited = 0;
+      while (!isSteamRunning() && waited < 8000) {
+        await new Promise(r => setTimeout(r, 500));
+        waited += 500;
+      }
+      console.log(`[Steam] Ready after ${waited}ms`);
+    }
+
+    // Hide Steam window immediately
+    hideSteamWindow();
+
+    // Launch the game
+    console.log('[Steam] Launching game:', gameExePath);
+    shell.openPath(gameExePath);
+
+    return { success: true, steamFound: true };
+  } catch(err) {
+    console.error('[Steam] launchWithSteam failed:', err.message);
+    return { success: false, error: err.message };
+  }
+});
+
+ipcMain.handle('steam:startHideWatcher', () => {
+  if (steamHideInterval) return true;
+  // Poll every 1.5s and hide Steam if visible
+  steamHideInterval = setInterval(hideSteamWindow, 1500);
+  console.log('[Steam] Hide watcher started');
+  return true;
+});
+
+ipcMain.handle('steam:stopHideWatcher', () => {
+  if (steamHideInterval) { clearInterval(steamHideInterval); steamHideInterval = null; }
+  console.log('[Steam] Hide watcher stopped');
+  return true;
+});
 
 // ─── CHILD MANAGEMENT IPC ────────────────────────────────────────────────────
 
@@ -1076,6 +1347,139 @@ ${url}
   );
   shell.openExternal(`mailto:?subject=${subject}&body=${body}`);
   return { url };
+});
+
+// ─── CREDENTIAL & SESSION STORE ──────────────────────────────────────────────
+// Credentials are stored encrypted using a simple XOR with machine ID as key.
+// Not cryptographically strong — this is convenience storage, not a vault.
+// Cookies extracted from Edge/Chrome are stored in appData and injected into webview sessions.
+
+const crypto = require('crypto');
+
+function getMachineKey() {
+  // Use a combination of machine-stable values as encryption key
+  const hostname = os.hostname();
+  const user = process.env.USERNAME || process.env.USER || 'user';
+  return crypto.createHash('sha256').update(hostname + user + 'brightgate').digest('hex').slice(0, 32);
+}
+
+function encryptCredential(text) {
+  try {
+    const key = getMachineKey();
+    const iv = crypto.randomBytes(16);
+    const cipher = crypto.createCipheriv('aes-256-cbc', Buffer.from(key), iv);
+    const encrypted = Buffer.concat([cipher.update(text, 'utf8'), cipher.final()]);
+    return iv.toString('hex') + ':' + encrypted.toString('hex');
+  } catch(e) { return text; } // Fallback: store plain
+}
+
+function decryptCredential(enc) {
+  if (!enc) return '';
+  // Encrypted format: 32-char ivHex + ':' + dataHex
+  // If string is not in this format (e.g. legacy plain text), return as-is
+  const colonIdx = enc.indexOf(':');
+  if (colonIdx !== 32) return enc; // Not encrypted — legacy plain text, safe to use directly
+  try {
+    const ivHex = enc.slice(0, 32);
+    const dataHex = enc.slice(33);
+    const key = getMachineKey();
+    const iv = Buffer.from(ivHex, 'hex');
+    const decipher = crypto.createDecipheriv('aes-256-cbc', Buffer.from(key), iv);
+    return decipher.update(Buffer.from(dataHex, 'hex')) + decipher.final('utf8');
+  } catch(e) {
+    console.warn('[Creds] Decrypt failed — returning raw value');
+    return enc;
+  }
+}
+
+// Save login credentials for a site
+ipcMain.handle('creds:save', (e, domain, username, password) => {
+  if (!appData.credentials) appData.credentials = {};
+  appData.credentials[domain] = {
+    username,
+    password: encryptCredential(password),
+    savedAt: Date.now()
+  };
+  saveData(appData);
+  return { ok: true };
+});
+
+// Get credentials for a site (decrypted)
+ipcMain.handle('creds:get', (e, domain) => {
+  const cred = appData.credentials?.[domain];
+  if (!cred) return null;
+  return {
+    username: cred.username,
+    password: decryptCredential(cred.password),
+    savedAt: cred.savedAt
+  };
+});
+
+// List all saved credential domains
+ipcMain.handle('creds:list', () => {
+  return Object.keys(appData.credentials || {}).map(domain => ({
+    domain,
+    username: appData.credentials[domain].username,
+    savedAt: appData.credentials[domain].savedAt
+  }));
+});
+
+// Delete credentials for a site
+ipcMain.handle('creds:delete', (e, domain) => {
+  if (appData.credentials) delete appData.credentials[domain];
+  saveData(appData);
+  return { ok: true };
+});
+
+// Extract cookies from Edge or Chrome for a given domain
+ipcMain.handle('cookies:extractFromBrowser', async (e, domain) => {
+  const hostname = domain.replace(/^https?:\/\//, '').split('/')[0];
+
+  // Primary: read cookies from BrightGate's persistent session (persist:brightgate partition)
+  // These accumulate as children use the app — no cross-browser extraction needed.
+  try {
+    const ses = session.fromPartition('persist:brightgate');
+    const cookies = await ses.cookies.get({ domain: hostname });
+    console.log(`[Cookies] Found ${cookies.length} session cookies for ${hostname}`);
+    return {
+      cookies: cookies.map(c => ({
+        name: c.name, value: c.value, domain: c.domain,
+        path: c.path, secure: c.secure, httpOnly: c.httpOnly,
+        source: 'brightgate_session'
+      })),
+      domain: hostname
+    };
+  } catch(e) {
+    console.log('[Cookies] Session read failed:', e.message);
+    return { cookies: [], domain: hostname };
+  }
+});
+
+// Inject credentials into the webview session (called when opening a site)
+ipcMain.handle('cookies:inject', async (e, domain, cookies) => {
+  try {
+    const ses = session.fromPartition('persist:brightgate');
+    let count = 0;
+    for (const cookie of (cookies || [])) {
+      try {
+        await ses.cookies.set({
+          url: `https://${cookie.domain || domain}`,
+          name: cookie.name,
+          value: cookie.value,
+          domain: cookie.domain || domain,
+          path: cookie.path || '/',
+          secure: cookie.secure || false,
+          httpOnly: cookie.httpOnly || false
+        });
+        count++;
+      } catch(ce) {}
+    }
+    await ses.cookies.flushStore();
+    console.log(`[Cookies] Injected ${count} cookies for ${domain}`);
+    return { ok: true, count };
+  } catch(e) {
+    return { ok: false, error: e.message };
+  }
 });
 
 // ─── APP SCANNER ──────────────────────────────────────────────────────────────
